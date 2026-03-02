@@ -1,0 +1,64 @@
+# ==============================================================================
+# Nera AI Manager — AI Dashboard CI/CD
+# Repo: https://gitlab.com/fluxvane/ai-manager/frontend/ai-dashboard
+# Image: registry.shiningtree.co/fluxvane/ai-manager/dashboard
+# Tech: Next.js
+# ==============================================================================
+
+include:
+- project: 'shining-tree/devops/ci-templates'
+  ref: develop
+  file:
+  - '/config/docker.yml'
+  - '/config/variables.yml'
+  - '/config/runners.yml'
+  - '/jobs/docker-build.yml'
+  - '/jobs/argocd-sync.yml'
+
+stages:
+- build
+- deploy
+
+variables:
+  REGISTRY_URL: "registry.shiningtree.co"
+  DEV_BRANCH: "develop"
+  ARGO_ENABLED: "true"
+  ARGO_SERVER: "argocd.shiningtree.co"
+  GITOPS_REPO: "https://gitlab.com/fluxvane/devops/infra-gitops.git"
+  GITOPS_BRANCH: "main"
+
+# ==============================================================================
+# BUILD — Next.js AI Dashboard
+# ==============================================================================
+build-dashboard:
+  extends: .docker_build_single
+  variables:
+    SERVICE_NAME: "dashboard"
+    DOCKERFILE_PATH: "Dockerfile"
+    BUILD_CONTEXT: "."
+    IMAGE_PATH: "fluxvane/ai-manager/dashboard"
+  rules:
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    when: never
+  - if: '$CI_COMMIT_REF_NAME == $DEV_BRANCH'
+    when: on_success
+  - when: never
+
+# ==============================================================================
+# DEPLOY — ArgoCD Sync
+# ==============================================================================
+deploy-dev:
+  extends: .argocd_sync
+  stage: deploy
+  variables:
+    DEPLOY_ENV: "dev"
+    DEV_ARGO_APP: "nera-ai-manager-dev"
+  needs:
+  - job: build-dashboard
+    optional: true
+  rules:
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    when: never
+  - if: '$CI_COMMIT_REF_NAME == $DEV_BRANCH'
+    when: on_success
+  - when: never
