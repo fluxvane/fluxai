@@ -23,6 +23,8 @@ RUN if [ -f "${ENV_FILE}" ] && [ "${ENV_FILE}" != ".env" ]; then cp "${ENV_FILE}
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+# Ensure public dir exists (may not be present in all environments)
+RUN mkdir -p /app/public
 
 # Stage 3: Production runtime
 FROM node:22-alpine AS runner
