@@ -17,6 +17,7 @@ import {
   Analytics as AnalyticsIcon,
   SmartToy as SmartToyIcon,
   Logout as LogoutIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import ChatInterface from '@/components/ChatInterface';
@@ -68,6 +69,11 @@ export default function ChatPage() {
           <Typography variant="h6" color="text.primary" sx={{ flexGrow: 1 }}>
             NERA AI
           </Typography>
+          <Tooltip title="RAG Chat">
+            <IconButton component={Link} href="/rag-chat" sx={{ color: 'text.secondary' }}>
+              <StorageIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Analytics">
             <IconButton component={Link} href="/analytics" sx={{ color: 'text.secondary' }}>
               <AnalyticsIcon />

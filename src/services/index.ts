@@ -3,8 +3,8 @@
  */
 
 export * from './http';
-export * from './gateway';
-export * from './health';
 export * from './chatService';
 export * from './conversationService';
 export * from './modelService';
+export * from './ragChatService';
+export * from './knowledgeBaseService';

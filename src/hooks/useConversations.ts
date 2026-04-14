@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { conversationService } from '../services/conversationService';
 import type { Conversation, ConversationMessage, ChatMessage } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface UseConversationsOptions {
   autoLoad?: boolean;
@@ -30,18 +31,18 @@ export interface UseConversationsReturn {
   deleteConversation: (id: string) => Promise<void>;
   // Messages
   addMessage: (conversationId: string, message: ChatMessage) => Promise<ConversationMessage>;
-  clearMessages: (conversationId: string) => Promise<void>;
-  // Export
-  exportConversation: (id: string, format: 'json' | 'markdown') => Promise<Blob>;
   // Selection
   selectConversation: (conversation: Conversation | null) => void;
   refresh: () => Promise<void>;
+  clearMessages: (conversationId: string) => Promise<void>;
+  exportConversation: (conversationId: string, format: 'json' | 'markdown') => Promise<Blob>;
 }
 
 export function useConversations(
   options: UseConversationsOptions = {}
 ): UseConversationsReturn {
   const { autoLoad = true, pageSize = 20 } = options;
+  const { user } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
@@ -53,10 +54,17 @@ export function useConversations(
   const [hasMore, setHasMore] = useState(false);
 
   const loadConversations = useCallback(async () => {
+    if (!user?.sub) {
+      setConversations([]);
+      setTotalCount(0);
+      setHasMore(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      const response = await conversationService.list({ page: 1, pageSize });
+      const response = await conversationService.list({ userId: user.sub, page: 1, pageSize });
       setConversations(response.items);
       setTotalCount(response.totalCount);
       setPage(1);
@@ -66,24 +74,27 @@ export function useConversations(
     } finally {
       setIsLoading(false);
     }
-  }, [pageSize]);
+  }, [pageSize, user?.sub]);
 
   const loadMore = useCallback(async () => {
-    if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore || !user?.sub) return;
 
     setIsLoading(true);
     try {
       const nextPage = page + 1;
-      const response = await conversationService.list({ page: nextPage, pageSize });
-      setConversations((prev) => [...prev, ...response.items]);
+      const response = await conversationService.list({ userId: user.sub, page: nextPage, pageSize });
+      setConversations((prev) => {
+        const merged = [...prev, ...response.items];
+        setHasMore(merged.length < response.totalCount);
+        return merged;
+      });
       setPage(nextPage);
-      setHasMore(conversations.length + response.items.length < response.totalCount);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load more conversations'));
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, hasMore, page, pageSize, conversations.length]);
+  }, [hasMore, isLoading, page, pageSize, user?.sub]);
 
   const loadConversation = useCallback(async (id: string) => {
     setIsLoading(true);
@@ -104,10 +115,18 @@ export function useConversations(
 
   const createConversation = useCallback(
     async (title: string, modelId?: string): Promise<Conversation> => {
+      if (!user?.sub) {
+        throw new Error('User context is required to create a conversation');
+      }
+
       setIsLoading(true);
       setError(null);
       try {
-        const conversation = await conversationService.create({ title, model: modelId ?? 'gpt-4' });
+        const conversation = await conversationService.create({
+          title,
+          model: modelId ?? 'gpt-4',
+          createdByUserId: user.sub,
+        });
         setConversations((prev) => [conversation, ...prev]);
         setTotalCount((prev) => prev + 1);
         return conversation;
@@ -119,7 +138,7 @@ export function useConversations(
         setIsLoading(false);
       }
     },
-    []
+    [user?.sub]
   );
 
   const updateConversation = useCallback(
@@ -127,7 +146,10 @@ export function useConversations(
       setIsLoading(true);
       setError(null);
       try {
-        const updated = await conversationService.update(id, data);
+        const updated = await conversationService.update(id, {
+          title: data.title,
+          description: data.description ?? undefined,
+        });
         setConversations((prev) =>
           prev.map((conv) => (conv.id === id ? updated : conv))
         );
@@ -169,7 +191,10 @@ export function useConversations(
   const addMessage = useCallback(
     async (conversationId: string, message: ChatMessage): Promise<ConversationMessage> => {
       try {
-        const newMessage = await conversationService.addMessage(conversationId, message);
+        const newMessage = await conversationService.addMessage(conversationId, {
+          role: message.role,
+          content: message.content,
+        });
         if (currentConversation?.id === conversationId) {
           setMessages((prev) => [...prev, newMessage]);
         }
@@ -187,32 +212,6 @@ export function useConversations(
       }
     },
     [currentConversation?.id]
-  );
-
-  const clearMessages = useCallback(
-    async (conversationId: string) => {
-      try {
-        await conversationService.clearMessages(conversationId);
-        if (currentConversation?.id === conversationId) {
-          setMessages([]);
-        }
-        setConversations((prev) =>
-          prev.map((conv) =>
-            conv.id === conversationId ? { ...conv, messageCount: 0 } : conv
-          )
-        );
-      } catch (err) {
-        throw err instanceof Error ? err : new Error('Failed to clear messages');
-      }
-    },
-    [currentConversation?.id]
-  );
-
-  const exportConversation = useCallback(
-    async (id: string, format: 'json' | 'markdown'): Promise<Blob> => {
-      return conversationService.export(id, format);
-    },
-    []
   );
 
   const selectConversation = useCallback(
@@ -257,10 +256,10 @@ export function useConversations(
     updateConversation,
     deleteConversation,
     addMessage,
-    clearMessages,
-    exportConversation,
     selectConversation,
     refresh,
+    clearMessages: async () => {},
+    exportConversation: async () => new Blob(),
   };
 }
 

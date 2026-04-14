@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState } from 'react';
 import {
-  Box, Card, CardContent, TextField, Button, Typography, Alert,
-  CircularProgress, InputAdornment, IconButton,
+  Box, Card, CardContent, Button, Typography, Alert,
+  CircularProgress,
 } from '@mui/material';
-import { Visibility, VisibilityOff, SmartToy as SmartToyIcon } from '@mui/icons-material';
+import { Login as LoginIcon, SmartToy as SmartToyIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -13,31 +13,27 @@ export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
       router.replace('/chat');
     }
   }, [isAuthenticated, router]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async () => {
     setError(null);
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      router.replace('/chat');
+      await login();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Unable to start sign-in');
       setIsLoading(false);
+      return;
+    } finally {
+      // The browser should navigate away immediately for OIDC redirect.
     }
   };
 
@@ -68,7 +64,7 @@ export default function LoginPage() {
               NERA AI
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Sign in to access the AI Dashboard
+              Sign in with Identity / IAM to access your AI workspace
             </Typography>
           </Box>
 
@@ -78,45 +74,26 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              sx={{ mb: 3 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+          <Box>
             <Button
-              type="submit"
               variant="contained"
               fullWidth
               size="large"
-              disabled={isLoading || !email || !password}
+              startIcon={!isLoading ? <LoginIcon /> : undefined}
+              onClick={handleSignIn}
+              disabled={isLoading}
               sx={{ py: 1.5 }}
             >
-              {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
+              {isLoading ? <CircularProgress size={24} /> : 'Continue with Identity'}
             </Button>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 2, textAlign: 'center' }}
+            >
+              You will be redirected to the central IAM sign-in flow.
+            </Typography>
           </Box>
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 3, textAlign: 'center' }}>

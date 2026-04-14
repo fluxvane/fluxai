@@ -3,8 +3,10 @@
  */
 
 // Chat Types
+export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
+
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: MessageRole;
   content: string;
   name?: string;
 }
@@ -56,57 +58,56 @@ export interface ChatCompletionChunk {
 export interface Conversation {
   id: string;
   title: string;
-  model: string;
-  createdAt: string;
-  updatedAt: string;
+  createdByUserId: string;
+  type: number;
+  status: number;
+  createdAt: string | null;
+  updatedAt: string | null;
   messageCount: number;
-  lastMessage?: string;
-  workspaceId?: string;
+  description?: string | null;
+  lastMessageAt?: string | null;
+  lastActivityAt?: string | null;
 }
 
 export interface ConversationMessage {
   id: string;
   conversationId: string;
-  role: 'user' | 'assistant' | 'system';
+  senderId: string;
+  role: MessageRole;
   content: string;
-  createdAt: string;
-  tokens?: number;
-  model?: string;
+  type: number;
+  status: number;
+  isEdited: boolean;
+  createdAt: string | null;
+  editedAt?: string | null;
+  aiModelId?: string | null;
 }
 
 // Model Types
-export interface ModelCapabilities {
-  streaming?: boolean;
-  functionCalling?: boolean;
-  vision?: boolean;
-  jsonMode?: boolean;
-  codeInterpreter?: boolean;
-  recommended?: boolean;
-}
-
-export interface ModelPricing {
-  inputPer1M?: number;
-  outputPer1M?: number;
-  inputPer1k?: number;
-  outputPer1k?: number;
-}
-
 export interface Model {
   id: string;
   name: string;
   displayName?: string;
   description?: string;
   provider: string;
-  type: 'chat' | 'completion' | 'embedding' | 'image' | 'audio';
-  maxTokens?: number;
-  maxOutputTokens?: number;
+  providerType?: string;
+  contextLength?: number | null;
   contextWindow?: number;
-  inputCostPer1k?: number;
-  outputCostPer1k?: number;
+  maxOutputTokens?: number;
+  costPerToken?: number | null;
   latency?: number;
-  capabilities?: ModelCapabilities;
-  pricing?: ModelPricing;
-  isActive?: boolean;
+  capabilities?: {
+    streaming?: boolean;
+    vision?: boolean;
+    functionCalling?: boolean;
+    codeGeneration?: boolean;
+    codeInterpreter?: boolean;
+    recommended?: boolean;
+  };
+  pricing?: {
+    inputPer1M?: number;
+    outputPer1M?: number;
+  };
 }
 
 // Analytics Types
@@ -126,6 +127,100 @@ export interface DailyUsage {
   successRate: number;
 }
 
+// RAG / ChatBot Types
+export interface KnowledgeBase {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  systemPrompt?: string | null;
+  maxTokensPerQuery: number;
+  topKResults: number;
+  similarityThreshold: number;
+  documentCount: number;
+  totalChunks: number;
+  createdAt: string;
+  lastIndexedAt?: string | null;
+}
+
+export interface KnowledgeBaseStats {
+  knowledgeBaseId: string;
+  documentCount: number;
+  activeDocumentCount: number;
+  failedDocumentCount: number;
+  totalChunks: number;
+  totalSizeBytes: number;
+  lastIndexedAt?: string | null;
+}
+
+export interface IndexedDocument {
+  id: string;
+  knowledgeBaseId: string;
+  title: string;
+  description?: string | null;
+  source: number;
+  status: number;
+  filePath?: string | null;
+  fileName?: string | null;
+  contentType: string;
+  fileSizeBytes: number;
+  totalChunks: number;
+  embeddingModel: string;
+  isSearchable: boolean;
+  indexedAt?: string | null;
+  processingError?: string | null;
+  createdAt: string;
+}
+
+export interface RetrievedSource {
+  documentId: string;
+  documentTitle: string;
+  content: string;
+  similarity: number;
+}
+
+export interface RagChatRequest {
+  message: string;
+  conversationId?: string;
+  knowledgeBaseId?: string;
+  modelId?: string;
+  temperature?: number;
+  stream?: boolean;
+}
+
+export interface RagChatResponse {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  sources: RetrievedSource[];
+  createdAt: string;
+}
+
+export interface RagConversation {
+  id: string;
+  title: string;
+  knowledgeBaseId?: string | null;
+  messageCount: number;
+  createdAt: string;
+  lastMessageAt?: string | null;
+}
+
+export interface RagChatMessage {
+  id: string;
+  conversationId: string;
+  role: MessageRole;
+  content: string;
+  modelId?: string | null;
+  sources: RetrievedSource[];
+  createdAt: string;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean;
@@ -141,5 +236,9 @@ export interface PaginatedResponse<T> {
   totalCount: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+}
+
+export interface AvailableModelsResponse {
+  models: Model[];
+  totalCount: number;
 }

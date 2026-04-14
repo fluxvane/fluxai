@@ -81,13 +81,11 @@ export function useModels(options: UseModelsOptions = {}): UseModelsReturn {
   }, [models]);
 
   const recommendedModels = useMemo(() => {
-    // Return models marked as recommended or top-performing
     return models.filter(
       (m) =>
-        m.capabilities?.recommended ||
         m.id.includes('gpt-4') ||
-        m.id.includes('claude-3') ||
-        m.id.includes('gemini-pro')
+        m.id.includes('claude') ||
+        m.id.includes('gemini')
     );
   }, [models]);
 

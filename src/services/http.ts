@@ -1,37 +1,19 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-/**
- * Get the auth token from localStorage (if available)
- */
-function getAuthToken(): string | null {
-	if (typeof window === 'undefined') return null;
-	return localStorage.getItem('accessToken');
-}
-
 function createHttpClient(baseURL?: string): AxiosInstance {
 	const instance = axios.create({
 		baseURL: baseURL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? '',
 		headers: { 'Content-Type': 'application/json' },
-		withCredentials: true
-	});
-
-	// Inject auth token on every request
-	instance.interceptors.request.use((config) => {
-		const token = getAuthToken();
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		return config;
+		withCredentials: true // httpOnly cookies are sent automatically
 	});
 
 	// Handle 401 responses — redirect to login
 	instance.interceptors.response.use(
 		(response: AxiosResponse) => response,
 		(error) => {
-			if (error.response?.status === 401 && typeof window !== 'undefined') {
-				localStorage.removeItem('accessToken');
-				localStorage.removeItem('user');
-				window.location.href = '/login';
+			if (error.response?.status === 401 && globalThis.window !== undefined) {
+				localStorage.removeItem('auth_user');
+				globalThis.window.location.href = '/login';
 			}
 			return Promise.reject(error);
 		}

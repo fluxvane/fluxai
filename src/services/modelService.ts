@@ -1,17 +1,15 @@
 /**
  * NERA AI Dashboard - Model Service
- * Real API integration for model management
+ * User-facing model discovery via AI proxy endpoints
  */
 
 import { http } from './http';
-import type { Model } from '../types';
+import type { AvailableModelsResponse, Model } from '../types';
 
-const API_BASE = '/api/v1/models';
+const API_BASE = '/api/v1/proxy/models';
 
 export interface ListModelsParams {
   provider?: string;
-  type?: 'chat' | 'completion' | 'embedding' | 'image' | 'audio';
-  includeDeprecated?: boolean;
 }
 
 export const modelService = {
@@ -19,38 +17,21 @@ export const modelService = {
    * List all available models
    */
   async list(params?: ListModelsParams): Promise<Model[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.provider) queryParams.set('provider', params.provider);
-    if (params?.type) queryParams.set('type', params.type);
-    if (params?.includeDeprecated) queryParams.set('includeDeprecated', 'true');
+    const response = await http.get<AvailableModelsResponse>(API_BASE);
+    const models = response.data.models.map((model) => ({
+      ...model,
+      displayName: model.name,
+      provider: model.provider || model.providerType || 'Unknown',
+    }));
 
-    const url = `${API_BASE}${queryParams.toString() ? `?${queryParams}` : ''}`;
-    const response = await http.get<Model[]>(url);
-    return response.data;
-  },
+    if (!params?.provider) {
+      return models;
+    }
 
-  /**
-   * Get a single model by ID
-   */
-  async getById(id: string): Promise<Model> {
-    const response = await http.get<Model>(`${API_BASE}/${id}`);
-    return response.data;
-  },
-
-  /**
-   * Get models grouped by provider
-   */
-  async getGroupedByProvider(): Promise<Record<string, Model[]>> {
-    const response = await http.get<Record<string, Model[]>>(`${API_BASE}/grouped`);
-    return response.data;
-  },
-
-  /**
-   * Get recommended models based on use case
-   */
-  async getRecommended(useCase: 'chat' | 'coding' | 'analysis' | 'creative'): Promise<Model[]> {
-    const response = await http.get<Model[]>(`${API_BASE}/recommended?useCase=${useCase}`);
-    return response.data;
+    return models.filter((model) => {
+      const provider = model.provider || model.providerType || '';
+      return provider.toLowerCase() === params.provider?.toLowerCase();
+    });
   },
 };
 

@@ -9,6 +9,7 @@ import type {
   ChatCompletionResponse,
   ChatCompletionChunk,
 } from '../types';
+import { getToken } from '../contexts/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const CHAT_ENDPOINT = `${API_BASE}/api/v1/proxy/chat/completions`;
@@ -18,11 +19,183 @@ const CHAT_ENDPOINT = `${API_BASE}/api/v1/proxy/chat/completions`;
  */
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('accessToken');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
   return headers;
+}
+
+function buildChatRequest(
+  messages: ChatMessage[],
+  options: ChatOptions,
+  stream: boolean,
+): ChatCompletionRequest {
+  return {
+    model: options.model,
+    messages,
+    stream,
+    temperature: options.temperature,
+    max_tokens: options.maxTokens,
+    top_p: options.topP,
+    frequency_penalty: options.frequencyPenalty,
+    presence_penalty: options.presencePenalty,
+    stop: options.stop,
+  };
+}
+
+function parseErrorPayload(errorText: string): string | null {
+  try {
+    const parsed = JSON.parse(errorText) as { error?: { message?: string } | string };
+    return typeof parsed.error === 'string'
+      ? parsed.error
+      : parsed.error?.message ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  const errorText = await response.text();
+  if (!errorText) {
+    return fallback;
+  }
+
+  return parseErrorPayload(errorText) || errorText || fallback;
+}
+
+function splitBufferedEvents(buffer: string): { events: string[]; remainder: string } {
+  const events = buffer.split('\n\n');
+  return {
+    events: events.slice(0, -1),
+    remainder: events.at(-1) ?? '',
+  };
+}
+
+function getEventDataLines(event: string): string[] {
+  return event
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data: '))
+    .map((line) => line.slice(6).trim());
+}
+
+function handleDataLine(
+  data: string,
+  options: ChatOptions,
+  callbacks: StreamCallbacks,
+  state: { fullContent: string; lastChunk: ChatCompletionChunk | null },
+): boolean {
+  if (data === '[DONE]') {
+    callbacks.onComplete?.(
+      state.fullContent,
+      buildCompleteResponse(state.lastChunk, options.model, state.fullContent),
+    );
+    return true;
+  }
+
+  try {
+    const chunk = JSON.parse(data) as ChatCompletionChunk;
+    state.lastChunk = chunk;
+    const delta = chunk.choices[0]?.delta;
+    if (delta?.content) {
+      state.fullContent += delta.content;
+      callbacks.onToken?.(delta.content);
+    }
+  } catch {
+    // Ignore malformed partial lines from upstream providers.
+  }
+
+  return false;
+}
+
+function buildCompleteResponse(
+  lastChunk: ChatCompletionChunk | null,
+  fallbackModel: string,
+  fullContent: string,
+): ChatCompletionResponse {
+  return {
+    id: lastChunk?.id || '',
+    object: 'chat.completion',
+    created: lastChunk?.created || Date.now(),
+    model: lastChunk?.model || fallbackModel,
+    choices: [
+      {
+        index: 0,
+        message: { role: 'assistant', content: fullContent },
+        finish_reason: 'stop',
+      },
+    ],
+    usage: {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    },
+  };
+}
+
+async function streamChatCompletion(
+  request: ChatCompletionRequest,
+  options: ChatOptions,
+  callbacks: StreamCallbacks,
+  abortController?: AbortController,
+): Promise<void> {
+  callbacks.onStart?.();
+
+  const response = await fetch(CHAT_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      Accept: 'text/event-stream',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+    signal: abortController?.signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Stream request failed'));
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body is not readable');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const state = {
+    fullContent: '',
+    lastChunk: null as ChatCompletionChunk | null,
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const split = splitBufferedEvents(buffer);
+      buffer = split.remainder;
+
+      for (const event of split.events) {
+        for (const data of getEventDataLines(event)) {
+          if (handleDataLine(data, options, callbacks, state)) {
+            return;
+          }
+        }
+      }
+    }
+
+    callbacks.onComplete?.(
+      state.fullContent,
+      buildCompleteResponse(state.lastChunk, options.model, state.fullContent),
+    );
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export interface ChatOptions {
@@ -49,17 +222,7 @@ export async function chatCompletion(
   messages: ChatMessage[],
   options: ChatOptions
 ): Promise<ChatCompletionResponse> {
-  const request: ChatCompletionRequest = {
-    model: options.model,
-    messages,
-    stream: false,
-    temperature: options.temperature,
-    max_tokens: options.maxTokens,
-    top_p: options.topP,
-    frequency_penalty: options.frequencyPenalty,
-    presence_penalty: options.presencePenalty,
-    stop: options.stop,
-  };
+  const request = buildChatRequest(messages, options, false);
 
   const response = await fetch(CHAT_ENDPOINT, {
     method: 'POST',
@@ -69,8 +232,7 @@ export async function chatCompletion(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Chat completion failed');
+    throw new Error(await getErrorMessage(response, 'Chat completion failed'));
   }
 
   return response.json();
@@ -84,117 +246,10 @@ export async function chatCompletionStream(
   options: ChatOptions,
   callbacks: StreamCallbacks
 ): Promise<void> {
-  const request: ChatCompletionRequest = {
-    model: options.model,
-    messages,
-    stream: true,
-    temperature: options.temperature,
-    max_tokens: options.maxTokens,
-    top_p: options.topP,
-    frequency_penalty: options.frequencyPenalty,
-    presence_penalty: options.presencePenalty,
-    stop: options.stop,
-  };
-
-  callbacks.onStart?.();
+  const request = buildChatRequest(messages, options, true);
 
   try {
-    const response = await fetch(CHAT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        Accept: 'text/event-stream',
-      },
-      credentials: 'include',
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Stream request failed');
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Response body is not readable');
-    }
-
-    const decoder = new TextDecoder();
-    let fullContent = '';
-    let lastChunk: ChatCompletionChunk | null = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const text = decoder.decode(value, { stream: true });
-      const lines = text.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim();
-
-          if (data === '[DONE]') {
-            // Stream complete
-            const completeResponse: ChatCompletionResponse = {
-              id: lastChunk?.id || '',
-              object: 'chat.completion',
-              created: lastChunk?.created || Date.now(),
-              model: lastChunk?.model || options.model,
-              choices: [
-                {
-                  index: 0,
-                  message: { role: 'assistant', content: fullContent },
-                  finish_reason: 'stop',
-                },
-              ],
-              usage: {
-                prompt_tokens: 0, // Not available in streaming
-                completion_tokens: 0,
-                total_tokens: 0,
-              },
-            };
-            callbacks.onComplete?.(fullContent, completeResponse);
-            return;
-          }
-
-          try {
-            const chunk: ChatCompletionChunk = JSON.parse(data);
-            lastChunk = chunk;
-
-            const delta = chunk.choices[0]?.delta;
-            if (delta?.content) {
-              fullContent += delta.content;
-              callbacks.onToken?.(delta.content);
-            }
-          } catch (e) {
-            // Skip invalid JSON lines
-            console.warn('Invalid SSE data:', data);
-          }
-        }
-      }
-    }
-
-    // If we reach here without [DONE], still complete
-    const completeResponse: ChatCompletionResponse = {
-      id: lastChunk?.id || '',
-      object: 'chat.completion',
-      created: lastChunk?.created || Date.now(),
-      model: lastChunk?.model || options.model,
-      choices: [
-        {
-          index: 0,
-          message: { role: 'assistant', content: fullContent },
-          finish_reason: 'stop',
-        },
-      ],
-      usage: {
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
-      },
-    };
-    callbacks.onComplete?.(fullContent, completeResponse);
+    await streamChatCompletion(request, options, callbacks);
   } catch (error) {
     callbacks.onError?.(error instanceof Error ? error : new Error(String(error)));
   }
@@ -216,99 +271,10 @@ export async function chatCompletionStreamWithAbort(
   callbacks: StreamCallbacks,
   abortController: AbortController
 ): Promise<void> {
-  const request: ChatCompletionRequest = {
-    model: options.model,
-    messages,
-    stream: true,
-    temperature: options.temperature,
-    max_tokens: options.maxTokens,
-    top_p: options.topP,
-    frequency_penalty: options.frequencyPenalty,
-    presence_penalty: options.presencePenalty,
-    stop: options.stop,
-  };
-
-  callbacks.onStart?.();
+  const request = buildChatRequest(messages, options, true);
 
   try {
-    const response = await fetch(CHAT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        Accept: 'text/event-stream',
-      },
-      credentials: 'include',
-      body: JSON.stringify(request),
-      signal: abortController.signal,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Stream request failed');
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Response body is not readable');
-    }
-
-    const decoder = new TextDecoder();
-    let fullContent = '';
-    let lastChunk: ChatCompletionChunk | null = null;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-
-            if (data === '[DONE]') {
-              const completeResponse: ChatCompletionResponse = {
-                id: lastChunk?.id || '',
-                object: 'chat.completion',
-                created: lastChunk?.created || Date.now(),
-                model: lastChunk?.model || options.model,
-                choices: [
-                  {
-                    index: 0,
-                    message: { role: 'assistant', content: fullContent },
-                    finish_reason: 'stop',
-                  },
-                ],
-                usage: {
-                  prompt_tokens: 0,
-                  completion_tokens: 0,
-                  total_tokens: 0,
-                },
-              };
-              callbacks.onComplete?.(fullContent, completeResponse);
-              return;
-            }
-
-            try {
-              const chunk: ChatCompletionChunk = JSON.parse(data);
-              lastChunk = chunk;
-
-              const delta = chunk.choices[0]?.delta;
-              if (delta?.content) {
-                fullContent += delta.content;
-                callbacks.onToken?.(delta.content);
-              }
-            } catch (e) {
-              console.warn('Invalid SSE data:', data);
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    await streamChatCompletion(request, options, callbacks, abortController);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       // Request was cancelled, don't call onError

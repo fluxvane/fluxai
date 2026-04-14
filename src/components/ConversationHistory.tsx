@@ -97,7 +97,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
     const query = searchQuery.toLowerCase();
     return (
       conv.title.toLowerCase().includes(query) ||
-      (conv.lastMessage?.toLowerCase().includes(query) ?? false)
+      (conv.description?.toLowerCase().includes(query) ?? false)
     );
   });
 
@@ -181,7 +181,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   };
 
   const generateTitle = (conv: Conversation): string => {
-    const text = conv.title || conv.lastMessage || 'New Conversation';
+    const text = conv.title || conv.description || 'New Conversation';
     if (text.length <= 40) return text;
     return text.substring(0, 37) + '...';
   };
@@ -299,9 +299,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                         {generateTitle(conversation)}
                       </Typography>
                       <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ mt: 0.25 }}>
-                        {conversation.model && (
-                          <Chip label={conversation.model} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                        )}
+
                         <AccessTimeIcon sx={{ fontSize: 11, color: 'text.secondary' }} />
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                           {dayjs(conversation.updatedAt).fromNow()}
