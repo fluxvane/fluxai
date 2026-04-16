@@ -10,14 +10,6 @@ RUN apk add --no-cache libc6-compat
 RUN npm install -g pnpm
 
 COPY package.json pnpm-lock.yaml ./
-COPY nera-common ./nera-common
-
-# Rewrite local dependency path for Docker context
-RUN sed -i 's|"link:../nera-common"|"link:./nera-common"|' package.json \
-    && sed -i 's|\.\./nera-common|./nera-common|g' pnpm-lock.yaml
-
-# Build @nera/common first
-RUN cd nera-common && pnpm install --no-frozen-lockfile && pnpm build && rm -rf node_modules
 
 RUN pnpm install --no-frozen-lockfile
 
