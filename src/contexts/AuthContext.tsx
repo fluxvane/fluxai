@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { startSSOLogin, getSSOState, type SSOUser } from '@nera/common';
+import { startSSOLogin, getSSOState, type SSOUser } from 'nera-common';
 
 export interface User {
   sub: string;

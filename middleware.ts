@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { evaluateSSOMiddleware } from '@nera/common';
+import { evaluateSSOMiddleware } from 'nera-common';
 
 export function middleware(request: NextRequest) {
 	const { pathname, search } = request.nextUrl;

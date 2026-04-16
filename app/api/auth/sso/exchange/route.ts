@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { exchangeSSOCode, buildSSOCookieOptions, SSO_COOKIE_NAMES } from '@nera/common';
+import { exchangeSSOCode, buildSSOCookieOptions, SSO_COOKIE_NAMES } from 'nera-common';
 
 /**
  * POST /api/auth/sso/exchange

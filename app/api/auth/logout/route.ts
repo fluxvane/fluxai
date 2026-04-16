@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { SSO_COOKIE_NAMES } from '@nera/common';
+import { SSO_COOKIE_NAMES } from 'nera-common';
 
 /**
  * POST /api/auth/logout
