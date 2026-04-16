@@ -20,20 +20,20 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 ARG VERSION=dev
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
-# Ensure public dir exists (may not be present in all environments)
-RUN mkdir -p /app/public
 
 RUN npm install -g pnpm
 
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
+# Ensure public dir exists (may not be present in all environments)
+RUN mkdir -p /app/public
+
 # Environment selection
 RUN case "$VERSION" in \
-  uat) [ -f .env.uat ] && cat .env.uat > .env && rm -f .env.production .env.development .env.local ;; \
-  latest|prod|production) [ -f .env.production ] && cat .env.production > .env && rm -f .env.development .env.uat .env.local ;; \
-  *) [ -f .env.development ] && cat .env.development > .env && rm -f .env.production .env.uat .env.local ;; \
+  uat) if [ -f .env.uat ]; then cat .env.uat > .env && rm -f .env.production .env.development .env.local; fi ;; \
+  latest|prod|production) if [ -f .env.production ]; then cat .env.production > .env && rm -f .env.development .env.uat .env.local; fi ;; \
+  *) if [ -f .env.development ]; then cat .env.development > .env && rm -f .env.production .env.uat .env.local; fi ;; \
   esac
 
 RUN pnpm build
