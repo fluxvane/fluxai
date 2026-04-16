@@ -1,64 +1,92 @@
-# ==============================================================================
-# Nera AI Manager — AI Dashboard CI/CD
-# Repo: https://gitlab.com/fluxvane/ai-manager/frontend/ai-dashboard
-# Image: registry.shiningtree.co/fluxvane/ai-manager/dashboard
-# Tech: Next.js
-# ==============================================================================
+# ============================================
+# Thera Admin Center CI/CD Pipeline
+# ============================================
+# Uses GitOps with ArgoCD for deployments
+# CI/CD Variables required: ARGO_SERVER, ARGO_AUTH_TOKEN
+
+stages:
+- .pre
+- check
+- test
+- build
+- deploy
+- .post
 
 include:
 - project: 'shining-tree/devops/ci-templates'
   ref: develop
-  file:
-  - '/config/docker.yml'
-  - '/config/variables.yml'
-  - '/config/runners.yml'
-  - '/jobs/docker-build.yml'
-  - '/jobs/argocd-sync.yml'
-
-stages:
-- build
-- deploy
+  file: 'pipelines/frontend-service.yml'
+- project: 'shining-tree/devops/ci-templates'
+  ref: develop
+  file: 'jobs/gitops-update.yml'
+- template: Security/SAST.gitlab-ci.yml
+- template: Security/Secret-Detection.gitlab-ci.yml
+- project: 'shining-tree/devops/ci-templates'
+  ref: develop
+  file: '/jobs/sonarqube.yml'
 
 variables:
-  REGISTRY_URL: "registry.shiningtree.co"
-  DEV_BRANCH: "develop"
+  IMAGE_PATH: "fluxvane/ai-dashboard"
   ARGO_ENABLED: "true"
-  ARGO_SERVER: "argocd.shiningtree.co"
-  GITOPS_REPO: "https://gitlab.com/fluxvane/devops/infra-gitops.git"
-  GITOPS_BRANCH: "main"
+  ARGO_APP_PREFIX: "ai-dashboard"
+  ARGO_SERVICE_NAME: "web"
+  HELM_RELEASE_NAME: "ai-dashboard-web"
+  FRONTEND_TYPE: "nextjs"
 
-# ==============================================================================
-# BUILD — Next.js AI Dashboard
-# ==============================================================================
-build-dashboard:
-  extends: .docker_build_single
-  variables:
-    SERVICE_NAME: "dashboard"
-    DOCKERFILE_PATH: "Dockerfile"
-    BUILD_CONTEXT: "."
-    IMAGE_PATH: "fluxvane/ai-manager/dashboard"
-  rules:
-  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    when: never
-  - if: '$CI_COMMIT_REF_NAME == $DEV_BRANCH'
-    when: on_success
-  - when: never
+  # Registry configuration
+  REGISTRY_URL: "registry.shiningtree.co"
 
-# ==============================================================================
-# DEPLOY — ArgoCD Sync
-# ==============================================================================
-deploy-dev:
-  extends: .argocd_sync
-  stage: deploy
-  variables:
-    DEPLOY_ENV: "dev"
-    DEV_ARGO_APP: "nera-ai-manager-dev"
-  needs:
-  - job: build-dashboard
-    optional: true
+  # Node / pnpm configuration
+  NODE_VERSION: "22"
+  NPM_CONFIG_CACHE: "${CI_PROJECT_DIR}/.npm"
+  PNPM_VERSION: "10.33.0"
+  USE_PNPM: "true"
+
+  # Skip template validation because Studio uses pnpm
+  SKIP_VALIDATE: "true"
+  SKIP_VALIDATION: "true"
+
+  # Docker build configuration
+  BUILD_CONTEXT: "."
+  DOCKERFILE: "Dockerfile"
+  DOCKERFILE_PATH: "Dockerfile"
+
+  ENABLE_SONAR: "true"
+  SONAR_TOKEN: ${SONAR_AI_DASHBOARD_KEY}
+  SONAR_PROJECT_KEY: "AiDashboard"
+  SONAR_PROJECT_NAME: "AiDashboard"
+
+  # Helm values paths (new IaC structure)
+  DEV_VALUES_FILE: "IaC/environments/dev.yaml"
+  UAT_VALUES_FILE: "IaC/environments/uat.yaml"
+  PROD_VALUES_FILE: "IaC/environments/prod.yaml"
+
+  # Namespace configuration
+  DEV_NAMESPACE: "gitlab-bot-dev"
+  UAT_NAMESPACE: "gitlab-bot-uat"
+  PROD_NAMESPACE: "gitlab-bot-prod"
+  # Feature toggles — AiDashboard runs on dev only
+  ENABLE_DEV_DEPLOY: "true"
+  ENABLE_UAT_DEPLOY: "false"
+  ENABLE_PROD_DEPLOY: "false"
+
+  # GitOps configuration
+  GITOPS_REPO: "https://gitlab.com/shining-tree/thera-website/thera-gitops.git"
+  GITOPS_BRANCH: "develop"
+
+# Security scanning
+secret_detection:
+  stage: check
+  tags:
+  - nera-docker
   rules:
-  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    when: never
-  - if: '$CI_COMMIT_REF_NAME == $DEV_BRANCH'
-    when: on_success
-  - when: never
+  - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG'
+
+# -----------------------------------------------------------------------
+# Pass NPM_TOKEN to Docker build so it can install @nera/nera-common
+# from the public npm registry during the image build stage.
+# -----------------------------------------------------------------------
+
+build-dev:
+  variables:
+    BUILD_ARGS: "--build-arg NPM_TOKEN=${NPM_TOKEN}"
