@@ -1,90 +1,65 @@
-# ============================================
-# Thera Admin Center CI/CD Pipeline
-# ============================================
-# Uses GitOps with ArgoCD for deployments
-# CI/CD Variables required: ARGO_SERVER, ARGO_AUTH_TOKEN
-
-stages:
-- .pre
-- check
-- test
-- build
-- deploy
-- .post
+# ============================================================
+# Nera AI Dashboard — Frontend (Next.js)
+# Repo: gitlab.com/fluxvane/ai-manager/frontend/ai-dashboard
+# Domain: https://dev-ai.fluxvane.com
+#
+# Pipeline flow:
+#   1. build  → Docker image → registry.shiningtree.co/fluxvane/ai-dashboard
+#   2. deploy → ArgoCD sync  → ai-dashboard-web-dev
+#
+# Required CI/CD variables (group/project level, masked):
+#   REGISTRY_USER, REGISTRY_PASSWORD  — registry.shiningtree.co credentials
+#   ARGO_AUTH_TOKEN                   — ArgoCD admin token
+#   NPM_TOKEN                         — npm registry token (for nera-common)
+# ============================================================
 
 include:
 - project: 'shining-tree/devops/ci-templates'
   ref: develop
-  file: 'pipelines/frontend-service.yml'
-- project: 'shining-tree/devops/ci-templates'
-  ref: develop
-  file: 'jobs/gitops-update.yml'
-- template: Security/SAST.gitlab-ci.yml
-- template: Security/Secret-Detection.gitlab-ci.yml
-- project: 'shining-tree/devops/ci-templates'
-  ref: develop
-  file: '/jobs/sonarqube.yml'
+  file: '/pipelines/frontend-service.yml'
 
 variables:
-  IMAGE_PATH: "fluxvane/ai-dashboard"
-  ARGO_ENABLED: "true"
-  ARGO_APP_PREFIX: "ai-dashboard"
-  ARGO_SERVICE_NAME: "web"
-  HELM_RELEASE_NAME: "ai-dashboard-web"
+  # Service
+  SERVICE_NAME: "ai-dashboard"
   FRONTEND_TYPE: "nextjs"
 
-  # Registry configuration
+  # Docker
   REGISTRY_URL: "registry.shiningtree.co"
+  IMAGE_PATH: "fluxvane/ai-dashboard"
+  DOCKERFILE_PATH: "Dockerfile"
+  BUILD_CONTEXT: "."
 
-  # Node / pnpm configuration
-  NODE_VERSION: "22"
-  NPM_CONFIG_CACHE: "${CI_PROJECT_DIR}/.npm"
-  PNPM_VERSION: "10.33.0"
+  # pnpm
   USE_PNPM: "true"
-
-  # Skip template validation because Studio uses pnpm
+  PNPM_VERSION: "10.33.0"
   SKIP_VALIDATE: "true"
   SKIP_VALIDATION: "true"
 
-  # Docker build configuration
-  BUILD_CONTEXT: "."
-  DOCKERFILE: "Dockerfile"
-  DOCKERFILE_PATH: "Dockerfile"
+  # Branch mapping — dev only for now
+  DEV_BRANCH: "develop"
+  UAT_BRANCH: ""
+  PROD_BRANCH_PRIMARY: ""
 
-  ENABLE_SONAR: "true"
-  SONAR_TOKEN: ${SONAR_AI_DASHBOARD_KEY}
-  SONAR_PROJECT_KEY: "AiDashboard"
-  SONAR_PROJECT_NAME: "AiDashboard"
+  # ArgoCD
+  ARGO_ENABLED: "true"
+  ARGO_SERVER: "argocd.shiningtree.co"
+  ARGO_APP_PREFIX: "ai-dashboard"
+  ARGO_SERVICE_NAME: "web"
+  ARGOCD_APP_DEV: "ai-dashboard-web-dev"
+  ARGO_INSECURE: "true"
+  ARGO_SYNC_TIMEOUT: "300"
+  ARGO_SYNC_PRUNE: "true"
+  ARGO_ROLLOUT_RESTART: "true"
 
-  # Helm values paths (new IaC structure)
-  DEV_VALUES_FILE: "IaC/environments/dev.yaml"
-  UAT_VALUES_FILE: "IaC/environments/uat.yaml"
-  PROD_VALUES_FILE: "IaC/environments/prod.yaml"
-
-  # Namespace configuration
-  DEV_NAMESPACE: "gitlab-bot-dev"
-  UAT_NAMESPACE: "gitlab-bot-uat"
-  PROD_NAMESPACE: "gitlab-bot-prod"
-  # Feature toggles — AiDashboard runs on dev only
+  # Deploy toggles — dev only
   ENABLE_DEV_DEPLOY: "true"
   ENABLE_UAT_DEPLOY: "false"
+  ENABLE_BETA_DEPLOY: "false"
   ENABLE_PROD_DEPLOY: "false"
 
-  # GitOps configuration
-  GITOPS_REPO: "https://gitlab.com/shining-tree/thera-website/thera-gitops.git"
-  GITOPS_BRANCH: "develop"
-
-# Security scanning
-secret_detection:
-  stage: check
-  tags:
-  - nera-docker
-  rules:
-  - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG'
-
 # -----------------------------------------------------------------------
-# Pass NPM_TOKEN to Docker build so it can install @nera/nera-common
-# from the public npm registry during the image build stage.
+# Pass NPM_TOKEN to Docker build so it can install nera-common
+# from the npm registry during the image build stage.
 # -----------------------------------------------------------------------
 
 build-dev:
