@@ -15,6 +15,7 @@ build/
 .env.*
 !.env.example
 !.env.production
+!.env.e2e.example
 
 # Secrets
 *.pem

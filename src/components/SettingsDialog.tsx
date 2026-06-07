@@ -16,7 +16,7 @@ interface SettingsDialogProps {
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { settings, save } = useSettings();
   const [form, setForm] = useState<Settings>(() =>
-    settings ?? { endpoint: '', apiKey: '', name: '', defaultModel: 'gemini/gemini-2.0-flash-lite' }
+    settings ?? { endpoint: '', apiKey: '', name: '', defaultModel: 'speed' }
   );
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         endpoint: form.endpoint.trim(),
         apiKey: form.apiKey.trim(),
         name: form.name.trim(),
-        defaultModel: form.defaultModel || 'gemini/gemini-2.0-flash-lite',
+        defaultModel: form.defaultModel || 'speed',
       });
       onClose();
     });
@@ -102,7 +102,12 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShowKey((s) => !s)} edge="end" size="small">
+                    <IconButton
+                      onClick={() => setShowKey((s) => !s)}
+                      edge="end"
+                      size="small"
+                      aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                    >
                       {showKey ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                     </IconButton>
                   </InputAdornment>

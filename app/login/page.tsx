@@ -56,7 +56,7 @@ export default function LoginPage() {
         endpoint: form.endpoint.trim(),
         apiKey: form.apiKey.trim(),
         name: form.name.trim(),
-        defaultModel: 'gemini/gemini-2.0-flash-lite',
+        defaultModel: 'speed',
       };
       save(settings);
       router.replace('/chat');
@@ -202,7 +202,12 @@ export default function LoginPage() {
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
-                          <IconButton onClick={() => setShowKey((s) => !s)} edge="end" size="small">
+                          <IconButton
+                            onClick={() => setShowKey((s) => !s)}
+                            edge="end"
+                            size="small"
+                            aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                          >
                             {showKey ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                           </IconButton>
                         </InputAdornment>

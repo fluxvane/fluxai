@@ -21,7 +21,7 @@ export interface SettingsContextValue {
 const STORAGE_KEY = 'flux_ai_settings';
 
 const DEFAULT_SETTINGS: Omit<Settings, 'endpoint' | 'apiKey' | 'name'> = {
-  defaultModel: 'gemini/gemini-2.0-flash-lite',
+  defaultModel: 'speed',
 };
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
