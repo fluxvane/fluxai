@@ -56,8 +56,7 @@ variables:
   ENABLE_BETA_DEPLOY: "false"
   ENABLE_PROD_DEPLOY: "false"
 
-# -----------------------------------------------------------------------
-# Build image. No build-arg needed — all deps are public on npmjs.
-# -----------------------------------------------------------------------
-
-build-dev:
+# No local job overrides — the included `frontend-service.yml` template
+# already defines `build-dev` / `build-uat` / `build-prod` and all
+# `argocd-sync-*` jobs. All deps are public on npmjs so no NPM_TOKEN
+# build-arg is required.
