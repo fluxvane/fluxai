@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Card,
   Avatar,
@@ -532,15 +533,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </Box>
         )}
 
-        {/* Loading indicator */}
-        {isLoading && !isStreaming && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
-            <CircularProgress size={20} sx={{ color: '#3b82f6' }} />
-            <Typography variant="body2" sx={{ ml: 1, color: '#94a3b8' }}>
-              AI is thinking...
-            </Typography>
-          </Box>
-        )}
+        {/* Loading indicator — rotating status messages, Gemini-style.
+            Stays on the first message ~1.5s, then cycles every 2.4s. */}
+        {isLoading && !isStreaming && <RotatingStatus />}
 
         <div ref={messagesEndRef} />
       </Box>
@@ -627,6 +622,72 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </Box>
       </Box>
     </Card>
+  )
+}
+
+/** Gemini-style rotating status shown while a response is preparing.
+ *  Holds the first message ~1.5s, then cycles every 2.4s through the array. */
+const ROTATING_STATUS_MESSAGES = [
+  'Thinking…',
+  'Reading the room…',
+  'Weighing the options…',
+  'Drafting a response…',
+  'Polishing the answer…',
+]
+
+function useRotatingStatus(active: boolean, messages: string[], intervalMs = 2400) {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    if (!active) { setIdx(0); return }
+    const t1 = setTimeout(() => setIdx(1), 1500)
+    const iv = setInterval(() => setIdx((i) => (i + 1) % messages.length), intervalMs)
+    return () => { clearTimeout(t1); clearInterval(iv) }
+  }, [active, messages.length, intervalMs])
+  return messages[idx]
+}
+
+function RotatingStatus() {
+  const status = useRotatingStatus(true, ROTATING_STATUS_MESSAGES)
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2, gap: 1.5 }}>
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        {[0, 1, 2].map((i) => (
+          <Box
+            key={i}
+            component={motion.span}
+            animate={{ y: [0, -5, 0], opacity: [0.35, 1, 0.35] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: i * 0.16 }}
+            sx={{ width: 6, height: 6, borderRadius: '50%', background: 'linear-gradient(135deg, #818cf8, #22d3ee)' }}
+          />
+        ))}
+      </Stack>
+      <Box sx={{ position: 'relative', overflow: 'hidden', height: 20, minWidth: 100 }}>
+        <AnimatePresence mode="wait" initial={false}>
+          <Box
+            key={status}
+            component={motion.div}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            sx={{ position: 'absolute', top: 1, left: 0 }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                background: 'linear-gradient(90deg, #64748b 0%, #e2e8f0 50%, #64748b 100%)',
+                backgroundSize: '200% 100%',
+                WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+                animation: 'shimmer 2.2s linear infinite',
+                '@keyframes shimmer': { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
+              }}
+            >
+              {status}
+            </Typography>
+          </Box>
+        </AnimatePresence>
+      </Box>
+    </Box>
   )
 }
 
