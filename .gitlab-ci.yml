@@ -1,16 +1,21 @@
 # ============================================================
-# Nera AI Dashboard — Frontend (Next.js)
-# Repo: gitlab.com/fluxvane/ai-manager/frontend/ai-dashboard
+# Flux-AI — Frontend (Next.js)
+# Repo:   gitlab.com/fluxvane/apps/flux-ai
 # Domain: https://dev-ai.fluxvane.com
 #
 # Pipeline flow:
-#   1. build  → Docker image → registry.shiningtree.co/fluxvane/ai-dashboard
-#   2. deploy → ArgoCD sync  → ai-dashboard-web-dev
+#   1. build  → Docker image → registry.gitlab.com/fluxvane/apps/flux-ai
+#   2. deploy → ArgoCD sync  → flux-ai-web-dev
 #
-# Required CI/CD variables (group/project level, masked):
-#   REGISTRY_USER, REGISTRY_PASSWORD  — registry.shiningtree.co credentials
-#   ARGO_AUTH_TOKEN                   — ArgoCD admin token
-#   NPM_TOKEN                         — npm registry token (for nera-common)
+# Registry: GitLab Container Registry (was registry.shiningtree.co — CF 100MB 413).
+# The fluxvane group sets REGISTRY_URL/USER/PASSWORD to shiningtree creds; those are
+# overridden by PROJECT-level CI/CD variables on this project pointing at the GitLab
+# registry + job token ($CI_REGISTRY / $CI_REGISTRY_USER / $CI_REGISTRY_PASSWORD).
+#
+# Required CI/CD variables:
+#   (project) REGISTRY_URL, REGISTRY_USER, REGISTRY_PASSWORD — GitLab registry + job token
+#   (group)   ARGO_AUTH_TOKEN — ArgoCD admin token
+#   (group)   NPM_TOKEN       — npm registry token (for nera-common)
 # ============================================================
 
 include:
@@ -20,12 +25,11 @@ include:
 
 variables:
   # Service
-  SERVICE_NAME: "ai-dashboard"
+  SERVICE_NAME: "flux-ai"
   FRONTEND_TYPE: "nextjs"
 
-  # Docker
-  REGISTRY_URL: "registry.shiningtree.co"
-  IMAGE_PATH: "fluxvane/ai-dashboard"
+  # Docker — GitLab Container Registry (REGISTRY_URL/USER/PASSWORD via project vars)
+  IMAGE_PATH: "fluxvane/apps/flux-ai"
   DOCKERFILE_PATH: "Dockerfile"
   BUILD_CONTEXT: "."
 
@@ -43,9 +47,9 @@ variables:
   # ArgoCD
   ARGO_ENABLED: "true"
   ARGO_SERVER: "argocd.shiningtree.co"
-  ARGO_APP_PREFIX: "ai-dashboard"
+  ARGO_APP_PREFIX: "flux-ai"
   ARGO_SERVICE_NAME: "web"
-  ARGOCD_APP_DEV: "ai-dashboard-web-dev"
+  ARGOCD_APP_DEV: "flux-ai-web-dev"
   ARGO_INSECURE: "true"
   ARGO_SYNC_TIMEOUT: "300"
   ARGO_SYNC_PRUNE: "true"
