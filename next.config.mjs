@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	reactStrictMode: true,
+	outputFileTracingRoot: '/Users/thontm/workspaces/companies/fluxvane/flux-ai',
 	compress: true,
 	poweredByHeader: false,
 	output: 'standalone',
-	transpilePackages: ['@nera/common'],
 	images: {
 		formats: ['image/avif', 'image/webp'],
 		minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days

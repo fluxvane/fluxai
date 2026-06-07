@@ -1,5 +1,12 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function Page() {
-	redirect('/chat');
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function HomePage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/chat');
+  }, [router]);
+  return null;
 }

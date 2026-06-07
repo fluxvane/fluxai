@@ -40,3 +40,7 @@ next-env.d.ts
 
 # Tests
 coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+.playwright-mcp/

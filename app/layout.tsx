@@ -1,9 +1,13 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Providers from './providers';
 
 export const metadata: Metadata = {
-  title: 'NERA AI Dashboard',
-  description: 'AI Chat & Analytics Dashboard',
+  title: 'Flux AI',
+  description: 'Your gateway to any AI model.',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#09090b',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
