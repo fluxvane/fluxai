@@ -66,6 +66,8 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/.next ./.next
 COPY --from=deps-prod --chown=nextjs:nextjs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nextjs /app/package.json ./package.json
+# Prisma 7 generated client lives in source; ship it so the server can import it.
+COPY --from=builder --chown=nextjs:nextjs /app/src/generated ./src/generated
 
 USER nextjs
 EXPOSE 3000

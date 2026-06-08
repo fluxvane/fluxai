@@ -4,8 +4,11 @@ export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
+  reasoning?: string;
   createdAt: string;
   model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
 }
 
 export interface ChatRequest {
@@ -13,6 +16,7 @@ export interface ChatRequest {
   messages: Array<{ role: ChatRole; content: string }>;
   stream: boolean;
   temperature?: number;
+  stream_options?: { include_usage: boolean };
 }
 
 export interface ModelInfo {

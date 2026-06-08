@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Box, Stack, Typography, TextField, IconButton, Avatar, Tooltip, CircularProgress,
-  Button, Popover, Chip, Divider, InputAdornment,
+  Box, Stack, Typography, TextField, IconButton, Avatar, Tooltip, Chip, Divider,
 } from '@mui/material';
 import {
   SendOutlined, StopOutlined, AutoAwesome, ContentCopyOutlined, RefreshOutlined,
-  CheckOutlined, SearchOutlined, KeyboardArrowDownOutlined,
+  CheckOutlined,
 } from '@mui/icons-material';
+import { motion } from 'framer-motion';
 import { useChat } from '@/hooks/useChat';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/AppShell';
+import ModelPicker from '@/components/ModelPicker';
+import Markdown from '@/components/Markdown';
+import ThinkingPanel from '@/components/ThinkingPanel';
 import type { ChatMessage } from '@/types/chat';
 
 const SUGGESTIONS = [
@@ -24,55 +27,22 @@ const SUGGESTIONS = [
 const STARTER_PROMPTS = [
   'What can you help me with?',
   'Compare React and Svelte for a new project',
-  'Summarize the last quarter results',
+  'Explain quantum entanglement like I am five',
   'Draft a polite follow-up email',
 ];
 
 export default function ChatPage() {
-  const { settings, hasSettings, isLoaded } = useSettings();
+  const { user } = useAuth();
   const chat = useChat();
   const [input, setInput] = useState('');
-  const [model, setModel] = useState('');
-  const [models, setModels] = useState<Array<{ id: string; provider?: string }>>([]);
-  const [modelsLoading, setModelsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    if (settings) {
-      setModel(settings.defaultModel);
-    }
-  }, [settings]);
-
-  useEffect(() => {
-    if (!settings) return;
-    let cancelled = false;
-    setModelsLoading(true);
-    fetch('/api/proxy/models')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { data?: Array<{ id: string; provider?: string }> } | null) => {
-        if (cancelled) return;
-        if (data?.data) {
-          setModels(data.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setModelsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [settings]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [chat.messages]);
-
-  if (!isLoaded) return null;
-  if (!hasSettings || !settings) return null;
 
   const handleSend = async () => {
     const content = input.trim();
@@ -88,70 +58,36 @@ export default function ChatPage() {
     }
   };
 
-  const handleAbort = () => chat.abort();
-
   const isEmpty = chat.messages.length === 0;
+  const firstName = user?.name.split(' ')[0] ?? 'there';
 
   return (
-    <AppShell
-      rightSlot={
-        <ModelPicker
-          value={model}
-          models={models}
-          loading={modelsLoading}
-          onChange={setModel}
-        />
-      }
-    >
-      <Box
-        ref={scrollRef}
-        sx={{
-          flex: 1,
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+    <AppShell rightSlot={<ModelPicker value={chat.model} onChange={chat.setModel} />}>
+      <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {isEmpty ? (
           <EmptyHero
-            name={settings.name}
-            onPrompt={(prompt) => {
-              setInput(prompt);
-              inputRef.current?.focus();
-            }}
+            name={firstName}
+            onPrompt={(prompt) => { setInput(prompt); inputRef.current?.focus(); }}
           />
         ) : (
-          <Box sx={{ maxWidth: 760, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
-            <Stack spacing={5}>
-              {chat.messages.map((message, index) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  userName={settings.name}
-                  isLast={index === chat.messages.length - 1}
-                  isStreaming={chat.isStreaming && index === chat.messages.length - 1 && message.role === 'assistant'}
-                  onRegenerate={async () => {
-                    const lastUserIdx = [...chat.messages].reverse().findIndex((m) => m.role === 'user');
-                    if (lastUserIdx === -1) return;
-                    const userMessage = chat.messages[chat.messages.length - 1 - lastUserIdx];
-                    chat.setMessages(chat.messages.slice(0, chat.messages.length - 1 - lastUserIdx));
-                    setInput('');
-                    await chat.send(userMessage.content);
-                  }}
-                />
-              ))}
+          <Box sx={{ maxWidth: 780, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
+            <Stack spacing={4}>
+              {chat.messages.map((message, index) => {
+                const isLast = index === chat.messages.length - 1;
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    userName={user?.name ?? 'You'}
+                    isLast={isLast}
+                    isStreaming={chat.isStreaming && isLast && message.role === 'assistant'}
+                    onRegenerate={() => void chat.regenerate()}
+                  />
+                );
+              })}
               {chat.error && (
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.25)',
-                  }}
-                >
-                  <Typography variant="body2" color="error.main">
-                    {chat.error}
-                  </Typography>
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  <Typography variant="body2" color="error.main">{chat.error}</Typography>
                 </Box>
               )}
             </Stack>
@@ -163,63 +99,34 @@ export default function ChatPage() {
         component="form"
         onSubmit={(e) => { e.preventDefault(); void handleSend(); }}
         sx={{
-          position: 'sticky',
-          bottom: 0,
-          px: { xs: 2, md: 4 },
-          pb: { xs: 2, md: 3 },
-          pt: 2,
+          position: 'sticky', bottom: 0, px: { xs: 2, md: 4 }, pb: { xs: 2, md: 3 }, pt: 2,
           background: 'linear-gradient(180deg, transparent 0%, rgba(9,9,11,0.85) 30%, rgba(9,9,11,0.98) 100%)',
           backdropFilter: 'blur(12px)',
         }}
       >
-        <Box sx={{ maxWidth: 760, mx: 'auto' }}>
+        <Box sx={{ maxWidth: 780, mx: 'auto' }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: 1,
-              p: 1.25,
-              borderRadius: 3,
-              border: '1px solid rgba(161, 161, 170, 0.15)',
-              background: 'rgba(24, 24, 27, 0.7)',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-              transition: 'all 0.2s',
-              '&:focus-within': {
-                borderColor: 'rgba(139, 92, 246, 0.5)',
-                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.18)',
-              },
+              display: 'flex', alignItems: 'flex-end', gap: 1, p: 1.25, borderRadius: 3,
+              border: '1px solid rgba(161,161,170,0.15)', background: 'rgba(24,24,27,0.7)',
+              backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.35)', transition: 'all 0.2s',
+              '&:focus-within': { borderColor: 'rgba(139,92,246,0.5)', boxShadow: '0 8px 32px rgba(139,92,246,0.18)' },
             }}
           >
             <TextField
               inputRef={inputRef}
-              multiline
-              maxRows={8}
+              multiline maxRows={8}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Message Flux AI…"
-              fullWidth
-              variant="standard"
-              disabled={chat.isStreaming}
-              InputProps={{
-                disableUnderline: true,
-                sx: { fontSize: 15, px: 1.5, py: 0.5 },
-              }}
+              fullWidth variant="standard"
+              InputProps={{ disableUnderline: true, sx: { fontSize: 15, px: 1.5, py: 0.5 } }}
               sx={{ flex: 1 }}
             />
             {chat.isStreaming ? (
               <Tooltip title="Stop generating">
-                <IconButton
-                  onClick={handleAbort}
-                  sx={{
-                    bgcolor: 'error.main',
-                    color: 'white',
-                    '&:hover': { bgcolor: 'error.dark' },
-                    width: 38,
-                    height: 38,
-                  }}
-                >
+                <IconButton onClick={chat.abort} sx={{ bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' }, width: 38, height: 38 }}>
                   <StopOutlined sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -230,18 +137,10 @@ export default function ChatPage() {
                     type="submit"
                     disabled={!input.trim()}
                     sx={{
-                      background: input.trim()
-                        ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                        : 'rgba(161, 161, 170, 0.08)',
+                      background: input.trim() ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' : 'rgba(161,161,170,0.08)',
                       color: input.trim() ? 'white' : 'text.secondary',
-                      '&:hover': {
-                        background: input.trim()
-                          ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
-                          : 'rgba(161, 161, 170, 0.14)',
-                      },
-                      width: 38,
-                      height: 38,
-                      transition: 'all 0.2s',
+                      '&:hover': { background: input.trim() ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)' : 'rgba(161,161,170,0.14)' },
+                      width: 38, height: 38, transition: 'all 0.2s',
                     }}
                   >
                     <SendOutlined sx={{ fontSize: 16 }} />
@@ -250,12 +149,8 @@ export default function ChatPage() {
               </Tooltip>
             )}
           </Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', textAlign: 'center', mt: 1.5, fontSize: 11, opacity: 0.7 }}
-          >
-            Flux AI · {model || 'no model selected'} · your data stays in your browser
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1.5, fontSize: 11, opacity: 0.7 }}>
+            Flux AI · {chat.model || 'no model'} · responses can be inaccurate
           </Typography>
         </Box>
       </Box>
@@ -265,82 +160,34 @@ export default function ChatPage() {
 
 function EmptyHero({ name, onPrompt }: { name: string; onPrompt: (prompt: string) => void }) {
   return (
-    <Box
-      sx={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        px: 3,
-        py: { xs: 6, md: 10 },
-        animation: 'fadeUp 0.5s ease-out',
-        '@keyframes fadeUp': {
-          from: { opacity: 0, transform: 'translateY(16px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
-        },
-      }}
-    >
-      <Box
-        sx={{
-          width: 56,
-          height: 56,
-          borderRadius: 2.5,
-          background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(139,92,246,0.35)',
-          mb: 3,
-        }}
-      >
-        <AutoAwesome sx={{ color: 'white', fontSize: 28 }} />
-      </Box>
-      <Typography
-        variant="h3"
-        sx={{
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          fontSize: { xs: 30, md: 40 },
-          lineHeight: 1.1,
-          background: 'linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #ec4899 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          mb: 1.5,
-        }}
-      >
-        Hello, {name.split(' ')[0]}.
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ fontSize: 16, maxWidth: 460, mb: 5 }}>
-        Pick a starter or just start typing. Anything goes.
-      </Typography>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', px: 3, py: { xs: 6, md: 10 } }}>
+      <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -8 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 180, damping: 14 }}>
+        <Box sx={{ width: 56, height: 56, borderRadius: 2.5, background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(139,92,246,0.35)', mb: 3 }}>
+          <AutoAwesome sx={{ color: 'white', fontSize: 28 }} />
+        </Box>
+      </motion.div>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}>
+        <Typography variant="h3" sx={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: { xs: 30, md: 40 }, lineHeight: 1.1, background: 'linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 1.5 }}>
+          Hello, {name}.
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ fontSize: 16, maxWidth: 460, mb: 5, mx: 'auto' }}>
+          Pick a starter or just start typing. Anything goes.
+        </Typography>
+      </motion.div>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', maxWidth: 560, mb: 5 }}>
-        {STARTER_PROMPTS.map((p) => (
-          <Chip
-            key={p}
-            label={p}
-            onClick={() => onPrompt(p)}
-            sx={{
-              height: 34,
-              bgcolor: 'rgba(161, 161, 170, 0.08)',
-              border: '1px solid rgba(161, 161, 170, 0.12)',
-              color: 'text.primary',
-              fontWeight: 500,
-              fontSize: 13,
-              cursor: 'pointer',
-              '&:hover': {
-                bgcolor: 'rgba(139, 92, 246, 0.10)',
-                borderColor: 'rgba(139, 92, 246, 0.4)',
-              },
-              transition: 'all 0.15s',
-            }}
-          />
+        {STARTER_PROMPTS.map((p, i) => (
+          <motion.div key={p} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.05 }}>
+            <Chip
+              label={p}
+              onClick={() => onPrompt(p)}
+              sx={{ height: 34, bgcolor: 'rgba(161,161,170,0.08)', border: '1px solid rgba(161,161,170,0.12)', color: 'text.primary', fontWeight: 500, fontSize: 13, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(139,92,246,0.10)', borderColor: 'rgba(139,92,246,0.4)' }, transition: 'all 0.15s' }}
+            />
+          </motion.div>
         ))}
       </Box>
 
-      <Divider sx={{ width: '100%', maxWidth: 560, mb: 2, borderColor: 'rgba(161, 161, 170, 0.08)' }}>
+      <Divider sx={{ width: '100%', maxWidth: 560, mb: 2, borderColor: 'rgba(161,161,170,0.08)' }}>
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontSize: 11, letterSpacing: '0.08em' }}>
           TRY ONE OF THESE
         </Typography>
@@ -348,35 +195,20 @@ function EmptyHero({ name, onPrompt }: { name: string; onPrompt: (prompt: string
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25, width: '100%', maxWidth: 560 }}>
         {SUGGESTIONS.map((s, i) => (
-          <Box
-            key={s.label}
-            onClick={() => onPrompt(s.prompt)}
-            sx={{
-              p: 1.75,
-              borderRadius: 2.5,
-              border: '1px solid rgba(161, 161, 170, 0.10)',
-              background: 'rgba(24, 24, 27, 0.4)',
-              textAlign: 'left',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              animation: `fadeUp 0.5s ease-out ${0.1 + i * 0.06}s both`,
-              '&:hover': {
-                borderColor: 'rgba(139, 92, 246, 0.35)',
-                background: 'rgba(139, 92, 246, 0.04)',
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
-              <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{s.icon}</Typography>
-              <Typography variant="body2" fontWeight={600} sx={{ fontSize: 13.5 }}>
-                {s.label}
+          <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 + i * 0.06 }}>
+            <Box
+              onClick={() => onPrompt(s.prompt)}
+              sx={{ p: 1.75, borderRadius: 2.5, border: '1px solid rgba(161,161,170,0.10)', background: 'rgba(24,24,27,0.4)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s', height: '100%', '&:hover': { borderColor: 'rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.04)', transform: 'translateY(-2px)' } }}
+            >
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
+                <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{s.icon}</Typography>
+                <Typography variant="body2" fontWeight={600} sx={{ fontSize: 13.5 }}>{s.label}</Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 12, lineHeight: 1.5 }}>
+                {s.prompt}
               </Typography>
-            </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 12, lineHeight: 1.5 }}>
-              {s.prompt}
-            </Typography>
-          </Box>
+            </Box>
+          </motion.div>
         ))}
       </Box>
     </Box>
@@ -390,7 +222,7 @@ function MessageBubble({
   userName: string;
   isLast: boolean;
   isStreaming: boolean;
-  onRegenerate: () => Promise<void>;
+  onRegenerate: () => void;
 }) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
@@ -401,36 +233,24 @@ function MessageBubble({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  // "Thinking" = streaming this assistant message but no answer text yet.
+  const thinking = isStreaming && !message.content;
+
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        gap: 1.5,
-        flexDirection: 'row',
-        animation: 'fadeIn 0.25s ease-out',
-        '@keyframes fadeIn': {
-          from: { opacity: 0, transform: 'translateY(6px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
-        },
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      style={{ display: 'flex', gap: 12 }}
     >
       <Avatar
         sx={{
-          width: 30,
-          height: 30,
-          fontSize: 13,
-          fontWeight: 700,
-          flexShrink: 0,
-          mt: 0.5,
-          background: isUser
-            ? 'rgba(161, 161, 170, 0.12)'
-            : 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
+          width: 30, height: 30, fontSize: 13, fontWeight: 700, flexShrink: 0, mt: 0.5,
+          background: isUser ? 'rgba(161,161,170,0.12)' : 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
           color: isUser ? 'text.primary' : 'white',
         }}
       >
-        {isUser
-          ? userName.trim().charAt(0).toUpperCase() || 'U'
-          : <AutoAwesome sx={{ fontSize: 16 }} />}
+        {isUser ? userName.trim().charAt(0).toUpperCase() || 'U' : <AutoAwesome sx={{ fontSize: 16 }} />}
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -439,38 +259,32 @@ function MessageBubble({
             {isUser ? userName : 'Flux AI'}
           </Typography>
           {!isUser && message.model && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11, fontFamily: 'monospace' }}>
               · {message.model}
             </Typography>
           )}
         </Stack>
 
+        {!isUser && <ThinkingPanel reasoning={message.reasoning ?? ''} isThinking={thinking} />}
+
         <Box
           sx={{
-            p: 1.75,
+            p: isUser ? 1.75 : 0,
             borderRadius: 2,
-            background: isUser
-              ? 'rgba(139, 92, 246, 0.10)'
-              : 'transparent',
-            border: isUser
-              ? '1px solid rgba(139, 92, 246, 0.22)'
-              : 'none',
-            borderLeft: isUser ? 'none' : '2px solid rgba(139, 92, 246, 0.35)',
+            background: isUser ? 'rgba(139,92,246,0.10)' : 'transparent',
+            border: isUser ? '1px solid rgba(139,92,246,0.22)' : 'none',
           }}
         >
-          <Typography
-            component="div"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              fontSize: 14.5,
-              lineHeight: 1.65,
-              color: 'text.primary',
-            }}
-          >
-            {message.content || (isStreaming ? '' : ' ')}
-            {isStreaming && <Cursor />}
-          </Typography>
+          {isUser ? (
+            <Typography component="div" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.65 }}>
+              {message.content}
+            </Typography>
+          ) : message.content ? (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+              <Markdown>{message.content}</Markdown>
+              {isStreaming && <Cursor />}
+            </Box>
+          ) : null}
         </Box>
 
         {!isUser && !isStreaming && message.content && (
@@ -482,7 +296,7 @@ function MessageBubble({
             </Tooltip>
             {isLast && (
               <Tooltip title="Regenerate">
-                <IconButton size="small" onClick={() => void onRegenerate()} sx={{ color: 'text.secondary', width: 28, height: 28 }}>
+                <IconButton size="small" onClick={onRegenerate} sx={{ color: 'text.secondary', width: 28, height: 28 }}>
                   <RefreshOutlined sx={{ fontSize: 14 }} />
                 </IconButton>
               </Tooltip>
@@ -490,7 +304,7 @@ function MessageBubble({
           </Stack>
         )}
       </Box>
-    </Box>
+    </motion.div>
   );
 }
 
@@ -499,233 +313,11 @@ function Cursor() {
     <Box
       component="span"
       sx={{
-        display: 'inline-block',
-        width: '0.55em',
-        height: '1.1em',
+        display: 'inline-block', width: '0.5em', height: '1.05em',
         background: 'linear-gradient(180deg, #a78bfa 0%, #ec4899 100%)',
-        borderRadius: 0.5,
-        ml: 0.3,
-        verticalAlign: '-0.18em',
-        animation: 'blink 1.05s steps(2) infinite',
-        '@keyframes blink': {
-          '0%, 50%': { opacity: 1 },
-          '50.01%, 100%': { opacity: 0 },
-        },
+        borderRadius: 0.5, ml: 0.3, verticalAlign: '-0.16em', flexShrink: 0,
+        animation: 'flux-blink 1.05s steps(2) infinite',
       }}
     />
-  );
-}
-
-interface ModelItem {
-  id: string;
-  provider?: string;
-}
-
-function ModelPicker({
-  value, models, loading, onChange,
-}: {
-  value: string;
-  models: ModelItem[];
-  loading: boolean;
-  onChange: (next: string) => void;
-}) {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [filter, setFilter] = useState('');
-  const open = Boolean(anchorEl);
-
-  const grouped = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    const filtered = q
-      ? models.filter((m) => m.id.toLowerCase().includes(q) || (m.provider ?? '').toLowerCase().includes(q))
-      : models;
-
-    const groups: Record<string, ModelItem[]> = {};
-    for (const m of filtered) {
-      const key = m.provider ?? m.id.split('/')[0] ?? 'other';
-      (groups[key] ||= []).push(m);
-    }
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [models, filter]);
-
-  const handleClose = () => {
-    setAnchorEl(null);
-    setFilter('');
-  };
-
-  const displayValue = value || 'Select model';
-  const displayProvider = value ? value.split('/')[0] : null;
-
-  return (
-    <>
-      <Button
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        disabled={loading}
-        startIcon={
-          loading ? (
-            <CircularProgress size={12} sx={{ color: 'text.secondary' }} />
-          ) : (
-            <Box
-              sx={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                bgcolor: 'success.main',
-                boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)',
-              }}
-            />
-          )
-        }
-        endIcon={<KeyboardArrowDownOutlined sx={{ fontSize: 16, opacity: 0.6 }} />}
-        sx={{
-          color: 'text.primary',
-          bgcolor: 'rgba(161, 161, 170, 0.08)',
-          border: '1px solid rgba(161, 161, 170, 0.12)',
-          borderRadius: 2,
-          px: 1.5,
-          py: 0.5,
-          minHeight: 36,
-          fontSize: 13,
-          fontWeight: 500,
-          textTransform: 'none',
-          maxWidth: 260,
-          justifyContent: 'flex-start',
-          '&:hover': { bgcolor: 'rgba(161, 161, 170, 0.14)' },
-        }}
-      >
-        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
-          {displayValue}
-        </Box>
-      </Button>
-
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 1,
-              width: 380,
-              maxHeight: 540,
-              background: 'rgba(20, 20, 23, 0.96)',
-              backdropFilter: 'blur(24px)',
-              border: '1px solid rgba(161, 161, 170, 0.12)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-              borderRadius: 2.5,
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(161, 161, 170, 0.08)' }}>
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            placeholder="Search models…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
-                </InputAdornment>
-              ),
-              sx: { fontSize: 14, bgcolor: 'rgba(161, 161, 170, 0.06)' },
-            }}
-          />
-          {displayProvider && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontSize: 11 }}>
-              Current: <Box component="span" sx={{ color: 'primary.light', fontFamily: 'monospace' }}>{value}</Box>
-            </Typography>
-          )}
-        </Box>
-
-        <Box sx={{ overflowY: 'auto', maxHeight: 440 }}>
-          {loading && (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <CircularProgress size={20} />
-            </Box>
-          )}
-          {!loading && grouped.length === 0 && (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
-                No models match &ldquo;{filter}&rdquo;
-              </Typography>
-            </Box>
-          )}
-          {!loading && grouped.map(([provider, items]) => (
-            <Box key={provider}>
-              <Box
-                sx={{
-                  px: 2,
-                  py: 1,
-                  position: 'sticky',
-                  top: 0,
-                  background: 'rgba(20, 20, 23, 0.95)',
-                  backdropFilter: 'blur(8px)',
-                  borderBottom: '1px solid rgba(161, 161, 170, 0.05)',
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'text.secondary',
-                  }}
-                >
-                  {provider} <Box component="span" sx={{ opacity: 0.5 }}>· {items.length}</Box>
-                </Typography>
-              </Box>
-              {items.map((m) => {
-                const selected = m.id === value;
-                return (
-                  <Box
-                    key={m.id}
-                    onClick={() => { onChange(m.id); handleClose(); }}
-                    sx={{
-                      px: 2,
-                      py: 0.85,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 1.5,
-                      background: selected ? 'rgba(139, 92, 246, 0.12)' : 'transparent',
-                      borderLeft: selected ? '2px solid' : '2px solid transparent',
-                      borderColor: selected ? 'primary.light' : 'transparent',
-                      '&:hover': {
-                        background: selected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(161, 161, 170, 0.05)',
-                      },
-                      transition: 'background 0.1s',
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 12.5,
-                        fontFamily: '"JetBrains Mono", "SF Mono", monospace',
-                        color: 'text.primary',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        flex: 1,
-                      }}
-                    >
-                      {m.id}
-                    </Typography>
-                    {selected && <CheckOutlined sx={{ fontSize: 16, color: 'primary.light', flexShrink: 0 }} />}
-                  </Box>
-                );
-              })}
-            </Box>
-          ))}
-        </Box>
-      </Popover>
-    </>
   );
 }

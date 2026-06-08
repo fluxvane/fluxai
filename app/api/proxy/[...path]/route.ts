@@ -1,42 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { getResolvedConfig, normalizeEndpoint } from '@/lib/user-config';
 
-const COOKIE_NAME = 'flux_ai_proxy';
-
-interface ProxySettings {
-  endpoint: string;
-  apiKey: string;
-}
-
-async function readSettings(): Promise<ProxySettings | null> {
-  const store = await cookies();
-  const raw = store.get(COOKIE_NAME)?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as ProxySettings;
-    if (!parsed.endpoint || !parsed.apiKey) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
+export const runtime = 'nodejs';
 
 async function proxy(req: NextRequest, path: string[]) {
-  const settings = await readSettings();
-  if (!settings) {
+  const config = await getResolvedConfig();
+  if (!config) {
     return NextResponse.json(
-      { error: 'not_configured', message: 'No proxy credentials in cookie' },
+      { error: 'not_configured', message: 'Sign in and complete configuration first.' },
       { status: 401 },
     );
   }
 
-  const base = settings.endpoint.replace(/\/+$/, '');
+  const base = normalizeEndpoint(config.endpoint);
   const url = `${base}/${path.join('/')}${req.nextUrl.search}`;
 
   const init: RequestInit = {
     method: req.method,
     headers: {
-      Authorization: `Bearer ${settings.apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': req.headers.get('content-type') ?? 'application/json',
     },
   };
@@ -48,7 +30,9 @@ async function proxy(req: NextRequest, path: string[]) {
   try {
     const upstream = await fetch(url, init);
 
-    if (path[0] === 'chat' && path[1] === 'completions' && upstream.body) {
+    // Stream chat completions straight through (SSE).
+    const isChatStream = path[0] === 'chat' && path[1] === 'completions' && upstream.body;
+    if (isChatStream) {
       const headers = new Headers();
       headers.set('Content-Type', upstream.headers.get('content-type') ?? 'text/event-stream');
       headers.set('Cache-Control', 'no-cache, no-transform');
@@ -58,8 +42,8 @@ async function proxy(req: NextRequest, path: string[]) {
     }
 
     const contentType = upstream.headers.get('content-type') ?? 'application/json';
-    const body = await upstream.text();
-    return new NextResponse(body, {
+    const bodyText = await upstream.text();
+    return new NextResponse(bodyText, {
       status: upstream.status,
       headers: { 'Content-Type': contentType },
     });
@@ -71,22 +55,17 @@ async function proxy(req: NextRequest, path: string[]) {
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return proxy(req, path);
-}
+type Ctx = { params: Promise<{ path: string[] }> };
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return proxy(req, path);
+export async function GET(req: NextRequest, { params }: Ctx) {
+  return proxy(req, (await params).path);
 }
-
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return proxy(req, path);
+export async function POST(req: NextRequest, { params }: Ctx) {
+  return proxy(req, (await params).path);
 }
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return proxy(req, path);
+export async function PUT(req: NextRequest, { params }: Ctx) {
+  return proxy(req, (await params).path);
+}
+export async function DELETE(req: NextRequest, { params }: Ctx) {
+  return proxy(req, (await params).path);
 }

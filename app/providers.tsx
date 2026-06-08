@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { ThemeProvider, createTheme, CssBaseline, alpha } from '@mui/material';
+import 'highlight.js/styles/github-dark.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
-import { SettingsProvider } from '@/contexts/SettingsContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { ChatProvider } from '@/hooks/useChat';
 
 const theme = createTheme({
@@ -35,7 +36,7 @@ const theme = createTheme({
     info: { main: '#3b82f6' },
   },
   typography: {
-    fontFamily: '"Inter", "SF Pro Display", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: 'var(--font-inter), "Inter", "SF Pro Display", "Roboto", "Helvetica", "Arial", sans-serif',
     h1: { fontWeight: 700, letterSpacing: '-0.02em' },
     h2: { fontWeight: 700, letterSpacing: '-0.02em' },
     h3: { fontWeight: 700, letterSpacing: '-0.01em' },
@@ -63,6 +64,57 @@ const theme = createTheme({
           borderRadius: 8,
         },
         '::-webkit-scrollbar-thumb:hover': { background: alpha('#a1a1aa', 0.35) },
+        '@keyframes flux-shimmer': {
+          '0%': { backgroundPosition: '200% 0' },
+          '100%': { backgroundPosition: '-200% 0' },
+        },
+        '@keyframes flux-pulse': {
+          '0%, 100%': { opacity: 0.4 },
+          '50%': { opacity: 1 },
+        },
+        '@keyframes flux-blink': {
+          '0%, 50%': { opacity: 1 },
+          '50.01%, 100%': { opacity: 0 },
+        },
+        '@keyframes flux-fade-up': {
+          from: { opacity: 0, transform: 'translateY(10px)' },
+          to: { opacity: 1, transform: 'translateY(0)' },
+        },
+        // Tighten markdown rendering inside chat bubbles.
+        '.flux-markdown p': { margin: '0 0 0.75em' },
+        '.flux-markdown p:last-child': { marginBottom: 0 },
+        '.flux-markdown pre': {
+          background: 'rgba(0,0,0,0.4)',
+          borderRadius: 12,
+          padding: '14px 16px',
+          overflow: 'auto',
+          border: '1px solid rgba(161,161,170,0.12)',
+          margin: '0 0 0.75em',
+        },
+        '.flux-markdown code': {
+          fontFamily: '"JetBrains Mono", "SF Mono", ui-monospace, monospace',
+          fontSize: '0.88em',
+        },
+        '.flux-markdown :not(pre) > code': {
+          background: 'rgba(161,161,170,0.14)',
+          padding: '0.15em 0.4em',
+          borderRadius: 6,
+        },
+        '.flux-markdown a': { color: '#a78bfa' },
+        '.flux-markdown ul, .flux-markdown ol': { margin: '0 0 0.75em', paddingLeft: '1.4em' },
+        '.flux-markdown li': { marginBottom: '0.25em' },
+        '.flux-markdown table': { borderCollapse: 'collapse', margin: '0 0 0.75em', width: '100%' },
+        '.flux-markdown th, .flux-markdown td': {
+          border: '1px solid rgba(161,161,170,0.18)',
+          padding: '6px 10px',
+          textAlign: 'left',
+        },
+        '.flux-markdown blockquote': {
+          borderLeft: '3px solid rgba(139,92,246,0.5)',
+          margin: '0 0 0.75em',
+          paddingLeft: '1em',
+          color: '#a1a1aa',
+        },
       },
     },
     MuiPaper: {
@@ -128,7 +180,7 @@ const queryClient = new QueryClient({
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SettingsProvider>
+    <AuthProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
@@ -141,6 +193,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           </SnackbarProvider>
         </ThemeProvider>
       </QueryClientProvider>
-    </SettingsProvider>
+    </AuthProvider>
   );
 }
