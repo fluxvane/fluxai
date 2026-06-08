@@ -1,24 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   AppBar, Toolbar, Box, Typography, IconButton, Avatar, Tooltip, Stack, Drawer,
   List, ListItemButton, ListItemIcon, ListItemText, Divider, Menu, MenuItem, Button,
+  CircularProgress,
 } from '@mui/material';
 import {
   AutoAwesome, ChatOutlined, AnalyticsOutlined, SettingsOutlined, LogoutOutlined,
-  Menu as MenuIcon, AddOutlined, DeleteOutline,
+  Menu as MenuIcon, AddOutlined, DeleteOutline, ImageOutlined,
 } from '@mui/icons-material';
-import { useSettings } from '@/contexts/SettingsContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/hooks/useChat';
 import SettingsDialog from './SettingsDialog';
 
 const NAV_ITEMS = [
   { label: 'Chat', href: '/chat', icon: <ChatOutlined /> },
+  { label: 'Generate Image', href: '/generate-image', icon: <ImageOutlined /> },
   { label: 'Analytics', href: '/analytics', icon: <AnalyticsOutlined /> },
 ];
+
+const CONVERSATIONS_CHANGED = 'flux_ai:conversations-changed';
+
+interface ConversationSummary {
+  id: string;
+  title: string;
+  model: string;
+  updatedAt: string;
+  messageCount: number;
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -28,61 +41,40 @@ interface AppShellProps {
 export default function AppShell({ children, rightSlot }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { settings, clear, hasSettings } = useSettings();
-  const { messages, clear: clearChat } = useChat();
+  const { user, hasConfig, isLoaded, logout } = useAuth();
+  const { newChat } = useChat();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-  React.useEffect(() => {
-    if (hasSettings) {
-      const stored = localStorage.getItem('flux_ai_conversations');
-      if (stored) {
-        try {
-          const list = JSON.parse(stored) as Array<{ id: string; title: string; updatedAt: string; messages: typeof messages }>;
-          // Hydrate is best-effort, no need to do anything here
-          void list;
-        } catch {}
-      }
-    }
-  }, [hasSettings]);
+  // Route guard: bounce to login/config when prerequisites are missing.
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!user) router.replace('/login');
+    else if (!hasConfig) router.replace('/config');
+  }, [isLoaded, user, hasConfig, router]);
 
-  if (!hasSettings || !settings) {
-    return null;
+  if (!isLoaded || !user || !hasConfig) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  const handleNewChat = () => {
-    if (messages.length > 0) {
-      persistConversation(messages, settings.name);
-    }
-    clearChat();
-  };
+  const initial = user.name.trim().charAt(0).toUpperCase() || 'U';
 
-  const persistConversation = (msgs: typeof messages, userName: string) => {
-    if (msgs.length === 0) return;
-    const firstUser = msgs.find((m) => m.role === 'user')?.content ?? 'New chat';
-    const title = firstUser.slice(0, 60).replace(/\n/g, ' ');
-    const list = readConversations();
-    const entry = {
-      id: `conv-${Date.now()}`,
-      title,
-      updatedAt: new Date().toISOString(),
-      userName,
-      messages: msgs,
-    };
-    list.unshift(entry);
-    localStorage.setItem('flux_ai_conversations', JSON.stringify(list.slice(0, 50)));
-  };
-
-  const handleLogout = () => {
-    if (messages.length > 0) persistConversation(messages, settings.name);
-    clear();
-    clearChat();
+  const handleLogout = async () => {
     setMenuAnchor(null);
+    await logout();
     router.replace('/login');
   };
 
-  const initial = settings.name.trim().charAt(0).toUpperCase() || 'U';
+  const handleNewChat = () => {
+    newChat();
+    setDrawerOpen(false);
+    router.push('/chat');
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -96,36 +88,26 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         }}
       >
         <Toolbar sx={{ gap: 1.5 }}>
-          <IconButton
-            onClick={() => setDrawerOpen(true)}
-            sx={{ color: 'text.primary', display: { xs: 'inline-flex', md: 'inline-flex' } }}
-          >
+          <IconButton onClick={() => setDrawerOpen(true)} sx={{ color: 'text.primary' }}>
             <MenuIcon />
           </IconButton>
 
           <Stack
-            direction="row"
-            spacing={1.2}
-            alignItems="center"
-            component={Link}
-            href="/chat"
+            direction="row" spacing={1.2} alignItems="center"
+            component={Link} href="/chat"
             sx={{ textDecoration: 'none', color: 'inherit' }}
           >
             <Box
               sx={{
-                width: 32,
-                height: 32,
-                borderRadius: '10px',
+                width: 32, height: 32, borderRadius: '10px',
                 background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 10px rgba(139,92,246,0.4)',
               }}
             >
               <AutoAwesome sx={{ color: 'white', fontSize: 18 }} />
             </Box>
-            <Typography variant="h6" fontWeight={700} sx={{ letterSpacing: '-0.01em' }}>
+            <Typography variant="h6" fontWeight={700} sx={{ letterSpacing: '-0.01em', display: { xs: 'none', sm: 'block' } }}>
               Flux AI
             </Typography>
           </Stack>
@@ -140,17 +122,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={settings.name}>
+          <Tooltip title={user.name}>
             <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ p: 0.5 }}>
-              <Avatar
-                sx={{
-                  width: 34,
-                  height: 34,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-                }}
-              >
+              <Avatar sx={{ width: 34, height: 34, fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)' }}>
                 {initial}
               </Avatar>
             </IconButton>
@@ -164,37 +138,22 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         onClose={() => setMenuAnchor(null)}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 220,
-            background: 'rgba(24, 24, 27, 0.95)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(161, 161, 170, 0.12)',
-          },
-        }}
+        PaperProps={{ sx: { mt: 1, minWidth: 240, background: 'rgba(24,24,27,0.96)', backdropFilter: 'blur(20px)', border: '1px solid rgba(161,161,170,0.12)' } }}
       >
         <Box sx={{ px: 2, py: 1.5 }}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Avatar
-              sx={{
-                width: 36,
-                height: 36,
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-              }}
-            >
+            <Avatar sx={{ width: 36, height: 36, fontWeight: 700, background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)' }}>
               {initial}
             </Avatar>
-            <Box>
-              <Typography variant="body2" fontWeight={600}>{settings.name}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {settings.endpoint}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="body2" fontWeight={600} noWrap>{user.name}</Typography>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.email}
               </Typography>
             </Box>
           </Stack>
         </Box>
-        <Divider sx={{ borderColor: 'rgba(161, 161, 170, 0.08)' }} />
+        <Divider sx={{ borderColor: 'rgba(161,161,170,0.08)' }} />
         <MenuItem onClick={() => { setSettingsOpen(true); setMenuAnchor(null); }}>
           <ListItemIcon><SettingsOutlined fontSize="small" /></ListItemIcon>
           <ListItemText>Settings</ListItemText>
@@ -208,23 +167,10 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{
-          sx: {
-            width: 280,
-            background: 'rgba(24, 24, 27, 0.92)',
-            backdropFilter: 'blur(20px)',
-            borderRight: '1px solid rgba(161, 161, 170, 0.08)',
-          },
-        }}
+        PaperProps={{ sx: { width: 290, background: 'rgba(24,24,27,0.94)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(161,161,170,0.08)' } }}
       >
         <Box sx={{ p: 2 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<AddOutlined />}
-            onClick={() => { handleNewChat(); setDrawerOpen(false); }}
-            sx={{ mb: 2 }}
-          >
+          <Button fullWidth variant="contained" startIcon={<AddOutlined />} onClick={handleNewChat} sx={{ mb: 2 }}>
             New chat
           </Button>
           <List dense>
@@ -237,13 +183,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   href={item.href}
                   selected={active}
                   onClick={() => setDrawerOpen(false)}
-                  sx={{
-                    borderRadius: 2,
-                    mb: 0.5,
-                    '&.Mui-selected': {
-                      background: 'rgba(139, 92, 246, 0.12)',
-                    },
-                  }}
+                  sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { background: 'rgba(139,92,246,0.12)' } }}
                 >
                   <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.light' : 'text.secondary' }}>
                     {item.icon}
@@ -254,7 +194,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
             })}
           </List>
 
-          <Divider sx={{ my: 2, borderColor: 'rgba(161, 161, 170, 0.08)' }} />
+          <Divider sx={{ my: 2, borderColor: 'rgba(161,161,170,0.08)' }} />
 
           <ConversationList onSelect={() => setDrawerOpen(false)} />
         </Box>
@@ -267,61 +207,55 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
   );
 }
 
-interface ConversationEntry {
-  id: string;
-  title: string;
-  updatedAt: string;
-  userName: string;
-  messages: Array<{ id: string; role: string; content: string; createdAt: string; model?: string }>;
-}
-
-function readConversations(): ConversationEntry[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('flux_ai_conversations');
-    return raw ? (JSON.parse(raw) as ConversationEntry[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function ConversationList({ onSelect }: { onSelect: () => void }) {
-  const [conversations, setConversations] = useState<ConversationEntry[]>([]);
-  const { setMessages: setChatMessages } = useChat();
   const router = useRouter();
+  const { loadConversation, conversationId, newChat } = useChat();
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    setConversations(readConversations());
-    const handler = () => setConversations(readConversations());
-    window.addEventListener('storage', handler);
-    window.addEventListener('flux_ai:conversations-changed', handler);
-    return () => {
-      window.removeEventListener('storage', handler);
-      window.removeEventListener('flux_ai:conversations-changed', handler);
-    };
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/conversations', { cache: 'no-store' });
+      if (res.ok) {
+        const data = (await res.json()) as { conversations: ConversationSummary[] };
+        setConversations(data.conversations);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleOpen = (entry: ConversationEntry) => {
-    setChatMessages(entry.messages as never);
+  useEffect(() => {
+    void load();
+    const handler = () => void load();
+    window.addEventListener(CONVERSATIONS_CHANGED, handler);
+    return () => window.removeEventListener(CONVERSATIONS_CHANGED, handler);
+  }, [load]);
+
+  const handleOpen = async (id: string) => {
+    await loadConversation(id);
     onSelect();
     router.push('/chat');
   };
 
-  const handleDelete = (id: string, event: React.MouseEvent) => {
+  const handleDelete = async (id: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const next = conversations.filter((c) => c.id !== id);
-    localStorage.setItem('flux_ai_conversations', JSON.stringify(next));
-    setConversations(next);
-    window.dispatchEvent(new Event('flux_ai:conversations-changed'));
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    await fetch(`/api/conversations/${id}`, { method: 'DELETE' }).catch(() => {});
+    if (id === conversationId) newChat();
   };
+
+  if (loading) {
+    return <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={18} /></Box>;
+  }
 
   if (conversations.length === 0) {
     return (
-      <Box sx={{ px: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 2 }}>
-          No saved conversations yet
-        </Typography>
-      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 2 }}>
+        No conversations yet
+      </Typography>
     );
   }
 
@@ -331,37 +265,43 @@ function ConversationList({ onSelect }: { onSelect: () => void }) {
         Recent
       </Typography>
       <List dense sx={{ mt: 0.5 }}>
-        {conversations.map((c) => (
-          <ListItemButton
-            key={c.id}
-            onClick={() => handleOpen(c)}
-            sx={{ borderRadius: 2, mb: 0.5, pr: 1 }}
-          >
-            <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
-              <ChatOutlined fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={c.title}
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: 500,
-                noWrap: true,
-                sx: { overflow: 'hidden', textOverflow: 'ellipsis' },
-              }}
-              secondary={new Date(c.updatedAt).toLocaleDateString()}
-              secondaryTypographyProps={{ fontSize: 11 }}
-            />
-            <Tooltip title="Delete">
-              <IconButton
-                size="small"
-                onClick={(e) => handleDelete(c.id, e)}
-                sx={{ color: 'text.secondary', opacity: 0.6, '&:hover': { opacity: 1, color: 'error.main' } }}
+        <AnimatePresence initial={false}>
+          {conversations.map((c) => (
+            <motion.div
+              key={c.id}
+              layout
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <ListItemButton
+                selected={c.id === conversationId}
+                onClick={() => void handleOpen(c.id)}
+                sx={{ borderRadius: 2, mb: 0.5, pr: 1, '&.Mui-selected': { background: 'rgba(139,92,246,0.12)' } }}
               >
-                <DeleteOutline sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-          </ListItemButton>
-        ))}
+                <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
+                  <ChatOutlined fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={c.title}
+                  primaryTypographyProps={{ fontSize: 14, fontWeight: 500, noWrap: true, sx: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                  secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
+                  secondaryTypographyProps={{ fontSize: 11 }}
+                />
+                <Tooltip title="Delete">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => void handleDelete(c.id, e)}
+                    sx={{ color: 'text.secondary', opacity: 0.6, '&:hover': { opacity: 1, color: 'error.main' } }}
+                  >
+                    <DeleteOutline sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              </ListItemButton>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </List>
     </>
   );

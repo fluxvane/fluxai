@@ -10,7 +10,10 @@ const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3008';
 const E2E_ENDPOINT = process.env.E2E_ENDPOINT ?? '';
 const E2E_API_KEY = process.env.E2E_API_KEY ?? '';
 const E2E_NAME = process.env.E2E_NAME ?? 'Ada Lovelace';
-const E2E_MODEL = process.env.E2E_MODEL ?? 'speed';
+const E2E_MODEL = process.env.E2E_MODEL ?? 'chat';
+// A fresh account per run so register always succeeds against the database.
+const E2E_PASSWORD = process.env.E2E_PASSWORD ?? 'flux-e2e-pass-1234';
+const E2E_EMAIL = process.env.E2E_EMAIL ?? `e2e+${Date.now()}@flux.test`;
 
 if (!E2E_ENDPOINT || !E2E_API_KEY) {
 	throw new Error(
@@ -69,5 +72,7 @@ export const E2E = {
 	apiKey: E2E_API_KEY,
 	name: E2E_NAME,
 	model: E2E_MODEL,
+	email: E2E_EMAIL,
+	password: E2E_PASSWORD,
 	baseURL: E2E_BASE_URL,
 } as const;

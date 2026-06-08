@@ -1,127 +1,133 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Button, TextField, Typography, Alert, InputAdornment, IconButton,
-  CircularProgress, Stack,
+  CircularProgress, Stack, ToggleButtonGroup, ToggleButton,
 } from '@mui/material';
 import {
-  Visibility, VisibilityOff, HubOutlined, KeyOutlined, PersonOutline,
-  AutoAwesome, ArrowForward, CheckCircleOutlineRounded,
+  Visibility, VisibilityOff, MailOutline, LockOutlined, PersonOutline,
+  AutoAwesome, ArrowForward,
 } from '@mui/icons-material';
-import { useSettings, type Settings } from '@/contexts/SettingsContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface FormState {
-  endpoint: string;
-  apiKey: string;
-  name: string;
-}
-
-const EMPTY_FORM: FormState = { endpoint: '', apiKey: '', name: '' };
+type Mode = 'signin' | 'register';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { save, hasSettings, isLoaded } = useSettings();
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [showKey, setShowKey] = useState(false);
+  const { user, hasConfig, isLoaded, login, register } = useAuth();
+  const [mode, setMode] = useState<Mode>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (isLoaded && hasSettings) {
-      router.replace('/chat');
+    if (isLoaded && user) {
+      router.replace(hasConfig ? '/chat' : '/config');
     }
-  }, [isLoaded, hasSettings, router]);
+  }, [isLoaded, user, hasConfig, router]);
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-
-    if (!form.endpoint.trim() || !form.apiKey.trim() || !form.name.trim()) {
-      setError('Please fill in all three fields to continue.');
-      return;
+    setBusy(true);
+    try {
+      const result =
+        mode === 'signin'
+          ? await login(email, password)
+          : await register(email, password, name);
+      if (!result.ok) {
+        setError(result.error ?? 'Something went wrong.');
+        return;
+      }
+      router.replace(result.hasConfig ? '/chat' : '/config');
+    } finally {
+      setBusy(false);
     }
-
-    if (!/^https?:\/\//i.test(form.endpoint.trim())) {
-      setError('Endpoint must start with http:// or https://');
-      return;
-    }
-
-    startTransition(() => {
-      const settings: Settings = {
-        endpoint: form.endpoint.trim().replace(/\/+$/, ''),
-        apiKey: form.apiKey.trim(),
-        name: form.name.trim(),
-        defaultModel: 'speed',
-      };
-      save(settings);
-      router.replace('/chat');
-    });
   };
 
-  const ready = !!(form.endpoint.trim() && form.apiKey.trim() && form.name.trim());
+  const ready =
+    mode === 'signin'
+      ? Boolean(email.trim() && password)
+      : Boolean(name.trim() && email.trim() && password);
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        p: 2,
-      }}
-    >
-      <Box
-        sx={{
-          width: '100%',
-          maxWidth: 440,
-          animation: 'fadeIn 0.4s ease-out',
-          '@keyframes fadeIn': {
-            from: { opacity: 0, transform: 'translateY(8px)' },
-            to: { opacity: 1, transform: 'translateY(0)' },
-          },
-        }}
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        style={{ width: '100%', maxWidth: 430 }}
       >
-        <Stack spacing={3} alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
-          <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: 2.5,
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(139, 92, 246, 0.35)',
-            }}
+        <Stack spacing={2.5} alignItems="center" sx={{ mb: 3.5, textAlign: 'center' }}>
+          <motion.div
+            initial={{ rotate: -8, scale: 0.8 }}
+            animate={{ rotate: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 14 }}
           >
-            <AutoAwesome sx={{ color: 'white', fontSize: 24 }} />
-          </Box>
+            <Box
+              sx={{
+                width: 52, height: 52, borderRadius: 3,
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 10px 30px rgba(139, 92, 246, 0.45)',
+              }}
+            >
+              <AutoAwesome sx={{ color: 'white', fontSize: 26 }} />
+            </Box>
+          </motion.div>
           <Box>
-            <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: '-0.02em', mb: 0.75 }}>
-              Sign in to Flux AI
+            <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: '-0.02em', mb: 0.5 }}>
+              {mode === 'signin' ? 'Welcome back' : 'Create your account'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
-              Connect your OpenAI-compatible proxy to start chatting.
+              {mode === 'signin'
+                ? 'Sign in to continue to Flux AI.'
+                : 'Join Flux AI — your gateway to any model.'}
             </Typography>
           </Box>
         </Stack>
 
         <Box
           sx={{
-            p: 3,
-            borderRadius: 3,
+            p: 3, borderRadius: 3,
             border: '1px solid rgba(161, 161, 170, 0.12)',
-            background: 'rgba(24, 24, 27, 0.6)',
+            background: 'rgba(24, 24, 27, 0.65)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
           }}
         >
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={mode}
+            onChange={(_, v: Mode | null) => v && (setMode(v), setError(null))}
+            sx={{
+              mb: 2.5,
+              bgcolor: 'rgba(161,161,170,0.06)',
+              borderRadius: 2,
+              p: 0.5,
+              '& .MuiToggleButton-root': {
+                border: 0, borderRadius: 1.5, py: 0.75, fontSize: 13.5, fontWeight: 600,
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(139,92,246,0.18)',
+                  color: 'primary.light',
+                  '&:hover': { bgcolor: 'rgba(139,92,246,0.24)' },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="signin">Sign in</ToggleButton>
+            <ToggleButton value="register">Register</ToggleButton>
+          </ToggleButtonGroup>
+
           {error && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontSize: 13 }}>
               {error}
@@ -130,66 +136,80 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             <Stack spacing={2}>
+              <AnimatePresence initial={false} mode="popLayout">
+                {mode === 'register' && (
+                  <motion.div
+                    key="name"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <TextField
+                      label="Your name"
+                      placeholder="Ada Lovelace"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      fullWidth
+                      autoComplete="name"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonOutline sx={{ color: 'text.secondary', fontSize: 18 }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <TextField
-                label="AI Endpoint"
-                placeholder="https://proxy.fluxvane.com/v1"
-                value={form.endpoint}
-                onChange={(e) => set('endpoint', e.target.value)}
+                label="Email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 fullWidth
                 required
-                autoComplete="off"
+                autoComplete="email"
                 autoFocus
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <HubOutlined sx={{ color: 'text.secondary', fontSize: 18 }} />
+                      <MailOutline sx={{ color: 'text.secondary', fontSize: 18 }} />
                     </InputAdornment>
                   ),
                 }}
               />
 
               <TextField
-                label="API Key"
-                placeholder="sk-…"
-                value={form.apiKey}
-                onChange={(e) => set('apiKey', e.target.value)}
+                label="Password"
+                name="password"
+                placeholder={mode === 'register' ? 'At least 8 characters' : '••••••••'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 fullWidth
                 required
-                autoComplete="off"
-                type={showKey ? 'text' : 'password'}
+                type={showPw ? 'text' : 'password'}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <KeyOutlined sx={{ color: 'text.secondary', fontSize: 18 }} />
+                      <LockOutlined sx={{ color: 'text.secondary', fontSize: 18 }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowKey((s) => !s)}
+                        onClick={() => setShowPw((s) => !s)}
                         edge="end"
                         size="small"
-                        aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                        aria-label={showPw ? 'Hide password' : 'Show password'}
                       >
-                        {showKey ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
+                        {showPw ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                       </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
-              <TextField
-                label="Your Name"
-                placeholder="Ada Lovelace"
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                fullWidth
-                required
-                autoComplete="off"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonOutline sx={{ color: 'text.secondary', fontSize: 18 }} />
                     </InputAdornment>
                   ),
                 }}
@@ -200,23 +220,37 @@ export default function LoginPage() {
                 variant="contained"
                 size="large"
                 fullWidth
-                disabled={isPending || !ready}
-                endIcon={!isPending && ready ? <ArrowForward /> : undefined}
+                disabled={busy || !ready}
+                endIcon={!busy && ready ? <ArrowForward /> : undefined}
                 sx={{ mt: 0.5, py: 1.25, fontSize: 14.5 }}
               >
-                {isPending ? <CircularProgress size={18} sx={{ color: 'white' }} /> : 'Continue'}
+                {busy ? (
+                  <CircularProgress size={18} sx={{ color: 'white' }} />
+                ) : mode === 'signin' ? (
+                  'Sign in'
+                ) : (
+                  'Create account'
+                )}
               </Button>
             </Stack>
           </form>
         </Box>
 
-        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center" sx={{ mt: 2.5 }}>
-          <CheckCircleOutlineRounded sx={{ fontSize: 14, color: 'success.main' }} />
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>
-            Stored locally in your browser. Nothing is sent to a server.
-          </Typography>
-        </Stack>
-      </Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', textAlign: 'center', mt: 2.5, fontSize: 12 }}
+        >
+          {mode === 'signin' ? "Don't have an account? " : 'Already registered? '}
+          <Box
+            component="span"
+            onClick={() => { setMode(mode === 'signin' ? 'register' : 'signin'); setError(null); }}
+            sx={{ color: 'primary.light', cursor: 'pointer', fontWeight: 600 }}
+          >
+            {mode === 'signin' ? 'Register' : 'Sign in'}
+          </Box>
+        </Typography>
+      </motion.div>
     </Box>
   );
 }

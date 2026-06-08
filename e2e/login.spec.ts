@@ -1,39 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { snapshotForView } from './_helpers';
 
-test.describe('Login page', () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto('/login');
-	});
+test.describe('Auth page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto('/login');
+  });
 
-	test('renders hero copy + form on all viewports', async ({ page }, info) => {
-		await expect(page).toHaveTitle(/Flux AI/);
-		await expect(page.getByRole('heading', { level: 5, name: 'Flux AI' })).toBeVisible();
-		await expect(
-			page.getByRole('heading', { name: /Talk to any model\./ }),
-		).toBeVisible();
-		await expect(page.getByText('Streaming')).toBeVisible();
-		await expect(page.getByText('Any OpenAI-compatible proxy')).toBeVisible();
-		await expect(page.getByText('Zero backend')).toBeVisible();
-		await expect(page.getByLabel('AI Endpoint (proxy URL)')).toBeVisible();
-		await expect(page.getByLabel('Your Name')).toBeVisible();
-		await snapshotForView(page, `login-${info.project.name}`);
-	});
+  test('renders sign-in form with email + password', async ({ page }, info) => {
+    await expect(page).toHaveTitle(/Flux AI/);
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    await expect(page.getByLabel('Email')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await snapshotForView(page, `login-${info.project.name}`);
+  });
 
-	test('blocks submit when fields are empty (HTML required)', async ({ page }) => {
-		await expect(page.getByLabel('AI Endpoint (proxy URL)')).toHaveAttribute('required');
-		await expect(page.getByLabel('Your Name')).toHaveAttribute('required');
-		const url = page.url();
-		await page.getByRole('button', { name: 'Start Chatting' }).click();
-		await page.waitForTimeout(500);
-		expect(page.url()).toBe(url);
-	});
+  test('register tab reveals the name field', async ({ page }) => {
+    await page.getByRole('button', { name: 'Register', exact: true }).click();
+    await expect(page.getByLabel('Your name')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
+  });
 
-	test('toggles API key visibility on login', async ({ page }) => {
-		const keyInput = page.locator('input[name="apiKey"], input[autocomplete="off"]').nth(1);
-		await expect(keyInput).toHaveAttribute('type', 'password');
-		await keyInput.fill('sk-test');
-		await page.getByRole('button', { name: 'Show API key' }).click();
-		await expect(keyInput).toHaveAttribute('type', 'text');
-	});
+  test('toggles password visibility', async ({ page }) => {
+    const pw = page.locator('input[name="password"]');
+    await expect(pw).toHaveAttribute('type', 'password');
+    await pw.fill('secret123');
+    await page.getByRole('button', { name: 'Show password' }).click();
+    await expect(pw).toHaveAttribute('type', 'text');
+  });
 });

@@ -1,0 +1,90 @@
+// Flux AI — data model
+// Single Postgres database backing auth, per-user proxy config,
+// conversations/messages, and generated images.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  config        Config?
+  conversations Conversation[]
+  images        GeneratedImage[]
+
+  @@map("users")
+}
+
+// Per-user proxy configuration. Created on the /config step after sign-in.
+model Config {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  endpoint     String
+  apiKey       String
+  defaultModel String   @default("chat")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("configs")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  model     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId, updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id               String   @id @default(cuid())
+  conversationId   String
+  role             String // 'user' | 'assistant' | 'system'
+  content          String
+  reasoning        String? // captured reasoning_content / thinking
+  model            String?
+  promptTokens     Int?
+  completionTokens Int?
+  createdAt        DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model GeneratedImage {
+  id        String   @id @default(cuid())
+  userId    String
+  prompt    String
+  model     String
+  size      String?
+  url       String? // remote URL when the proxy returns one
+  b64       String? // base64 payload when returned inline
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("generated_images")
+}
