@@ -1,10 +1,12 @@
 import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
+import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
-  // Migrate / db push reads the connection URL from here in Prisma 7.
+  // Read the URL lazily via process.env so `prisma generate` (which needs no DB)
+  // works in CI/Docker without DATABASE_URL set. migrate / db push pick it up
+  // from .env (loaded above) when run locally.
   datasource: {
-    url: env('DATABASE_URL'),
+    url: process.env.DATABASE_URL ?? '',
   },
 });
