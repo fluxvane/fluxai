@@ -3,12 +3,12 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Button, Card, CardContent, TextField, Typography, Stack, Alert,
-  InputAdornment, IconButton, CircularProgress, Chip,
+  Box, Button, TextField, Typography, Alert, InputAdornment, IconButton,
+  CircularProgress, Stack,
 } from '@mui/material';
 import {
-  Visibility, VisibilityOff, BoltOutlined, AutoAwesome, KeyOutlined,
-  HubOutlined, PersonOutline, ArrowForward, RocketLaunchOutlined,
+  Visibility, VisibilityOff, HubOutlined, KeyOutlined, PersonOutline,
+  AutoAwesome, ArrowForward, CheckCircleOutlineRounded,
 } from '@mui/icons-material';
 import { useSettings, type Settings } from '@/contexts/SettingsContext';
 
@@ -18,16 +18,12 @@ interface FormState {
   name: string;
 }
 
-const PLACEHOLDERS: FormState = {
-  endpoint: 'https://proxy.fluxvane.com/v1',
-  apiKey: 'sk-...',
-  name: 'Ada Lovelace',
-};
+const EMPTY_FORM: FormState = { endpoint: '', apiKey: '', name: '' };
 
 export default function LoginPage() {
   const router = useRouter();
   const { save, hasSettings, isLoaded } = useSettings();
-  const [form, setForm] = useState<FormState>({ endpoint: '', apiKey: '', name: '' });
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -51,9 +47,14 @@ export default function LoginPage() {
       return;
     }
 
+    if (!/^https?:\/\//i.test(form.endpoint.trim())) {
+      setError('Endpoint must start with http:// or https://');
+      return;
+    }
+
     startTransition(() => {
       const settings: Settings = {
-        endpoint: form.endpoint.trim(),
+        endpoint: form.endpoint.trim().replace(/\/+$/, ''),
         apiKey: form.apiKey.trim(),
         name: form.name.trim(),
         defaultModel: 'speed',
@@ -63,6 +64,8 @@ export default function LoginPage() {
     });
   };
 
+  const ready = !!(form.endpoint.trim() && form.apiKey.trim() && form.name.trim());
+
   return (
     <Box
       sx={{
@@ -71,182 +74,147 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
-        position: 'relative',
-        overflow: 'hidden',
       }}
     >
       <Box
         sx={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(ellipse 60% 50% at 20% 30%, rgba(139,92,246,0.20), transparent 60%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(236,72,153,0.15), transparent 60%)',
-          pointerEvents: 'none',
-          animation: 'pulse 8s ease-in-out infinite',
-          '@keyframes pulse': {
-            '0%, 100%': { opacity: 0.8 },
-            '50%': { opacity: 1 },
+          width: '100%',
+          maxWidth: 440,
+          animation: 'fadeIn 0.4s ease-out',
+          '@keyframes fadeIn': {
+            from: { opacity: 0, transform: 'translateY(8px)' },
+            to: { opacity: 1, transform: 'translateY(0)' },
           },
         }}
-      />
-
-      <Box sx={{ width: '100%', maxWidth: 1100, position: 'relative', zIndex: 1 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={6} alignItems="center">
-          <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
-            <Stack direction="row" spacing={1.5} alignItems="center" justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ mb: 3 }}>
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
-                }}
-              >
-                <AutoAwesome sx={{ color: 'white', fontSize: 24 }} />
-              </Box>
-              <Typography variant="h5" fontWeight={700}>
-                Flux AI
-              </Typography>
-            </Stack>
-
-            <Typography
-              variant="h2"
-              sx={{
-                fontSize: { xs: 40, md: 56 },
-                fontWeight: 700,
-                lineHeight: 1.05,
-                letterSpacing: '-0.03em',
-                background: 'linear-gradient(135deg, #fafafa 0%, #a1a1aa 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                mb: 2,
-              }}
-            >
-              Talk to any model.<br />Through your own proxy.
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480, fontSize: 17, lineHeight: 1.6 }}>
-              Connect your OpenAI-compatible endpoint, drop in an API key, and start chatting with
-              200+ models — from Gemini and GPT to Claude and beyond. Your keys stay in your browser.
-            </Typography>
-
-            <Stack direction="row" spacing={1.5} sx={{ mt: 4 }} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'center', md: 'flex-start' }}>
-              <Chip icon={<BoltOutlined sx={{ fontSize: 16 }} />} label="Streaming" size="small" sx={{ bgcolor: 'rgba(139,92,246,0.10)', color: 'text.primary', border: '1px solid rgba(139,92,246,0.25)' }} />
-              <Chip icon={<HubOutlined sx={{ fontSize: 16 }} />} label="Any OpenAI-compatible proxy" size="small" sx={{ bgcolor: 'rgba(236,72,153,0.10)', color: 'text.primary', border: '1px solid rgba(236,72,153,0.25)' }} />
-              <Chip icon={<RocketLaunchOutlined sx={{ fontSize: 16 }} />} label="Zero backend" size="small" sx={{ bgcolor: 'rgba(59,130,246,0.10)', color: 'text.primary', border: '1px solid rgba(59,130,246,0.25)' }} />
-            </Stack>
-          </Box>
-
-          <Card
-            elevation={0}
+      >
+        <Stack spacing={3} alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
+          <Box
             sx={{
-              flex: 1,
-              maxWidth: 480,
-              width: '100%',
-              background: 'rgba(24, 24, 27, 0.65)',
-              backdropFilter: 'blur(24px)',
-              border: '1px solid rgba(161, 161, 170, 0.12)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+              width: 48,
+              height: 48,
+              borderRadius: 2.5,
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(139, 92, 246, 0.35)',
             }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-                Get started
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Your credentials are stored locally in your browser. Nothing is sent to a server.
-              </Typography>
+            <AutoAwesome sx={{ color: 'white', fontSize: 24 }} />
+          </Box>
+          <Box>
+            <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: '-0.02em', mb: 0.75 }}>
+              Sign in to Flux AI
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
+              Connect your OpenAI-compatible proxy to start chatting.
+            </Typography>
+          </Box>
+        </Stack>
 
-              {error && (
-                <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-                  {error}
-                </Alert>
-              )}
+        <Box
+          sx={{
+            p: 3,
+            borderRadius: 3,
+            border: '1px solid rgba(161, 161, 170, 0.12)',
+            background: 'rgba(24, 24, 27, 0.6)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          }}
+        >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontSize: 13 }}>
+              {error}
+            </Alert>
+          )}
 
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={2}>
-                  <TextField
-                    label="AI Endpoint (proxy URL)"
-                    placeholder={PLACEHOLDERS.endpoint}
-                    value={form.endpoint}
-                    onChange={(e) => set('endpoint', e.target.value)}
-                    fullWidth
-                    required
-                    autoComplete="off"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <HubOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <TextField
+                label="AI Endpoint"
+                placeholder="https://proxy.fluxvane.com/v1"
+                value={form.endpoint}
+                onChange={(e) => set('endpoint', e.target.value)}
+                fullWidth
+                required
+                autoComplete="off"
+                autoFocus
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <HubOutlined sx={{ color: 'text.secondary', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-                  <TextField
-                    label="API Key"
-                    placeholder={PLACEHOLDERS.apiKey}
-                    value={form.apiKey}
-                    onChange={(e) => set('apiKey', e.target.value)}
-                    fullWidth
-                    required
-                    autoComplete="off"
-                    type={showKey ? 'text' : 'password'}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <KeyOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowKey((s) => !s)}
-                            edge="end"
-                            size="small"
-                            aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                          >
-                            {showKey ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+              <TextField
+                label="API Key"
+                placeholder="sk-…"
+                value={form.apiKey}
+                onChange={(e) => set('apiKey', e.target.value)}
+                fullWidth
+                required
+                autoComplete="off"
+                type={showKey ? 'text' : 'password'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <KeyOutlined sx={{ color: 'text.secondary', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowKey((s) => !s)}
+                        edge="end"
+                        size="small"
+                        aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                      >
+                        {showKey ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-                  <TextField
-                    label="Your Name"
-                    placeholder={PLACEHOLDERS.name}
-                    value={form.name}
-                    onChange={(e) => set('name', e.target.value)}
-                    fullWidth
-                    required
-                    autoComplete="off"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PersonOutline sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+              <TextField
+                label="Your Name"
+                placeholder="Ada Lovelace"
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+                fullWidth
+                required
+                autoComplete="off"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonOutline sx={{ color: 'text.secondary', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    fullWidth
-                    disabled={isPending}
-                    endIcon={!isPending ? <ArrowForward /> : undefined}
-                    sx={{ mt: 1, py: 1.5, fontSize: 15 }}
-                  >
-                    {isPending ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Start Chatting'}
-                  </Button>
-                </Stack>
-              </form>
-            </CardContent>
-          </Card>
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                fullWidth
+                disabled={isPending || !ready}
+                endIcon={!isPending && ready ? <ArrowForward /> : undefined}
+                sx={{ mt: 0.5, py: 1.25, fontSize: 14.5 }}
+              >
+                {isPending ? <CircularProgress size={18} sx={{ color: 'white' }} /> : 'Continue'}
+              </Button>
+            </Stack>
+          </form>
+        </Box>
+
+        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center" sx={{ mt: 2.5 }}>
+          <CheckCircleOutlineRounded sx={{ fontSize: 14, color: 'success.main' }} />
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>
+            Stored locally in your browser. Nothing is sent to a server.
+          </Typography>
         </Stack>
       </Box>
     </Box>

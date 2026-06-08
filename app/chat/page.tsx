@@ -3,11 +3,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box, Stack, Typography, TextField, IconButton, Avatar, Tooltip, CircularProgress,
-  Button,
+  Button, Popover, Chip, Divider, InputAdornment,
 } from '@mui/material';
 import {
-  SendOutlined, StopOutlined, AutoAwesome, BoltOutlined, ContentCopyOutlined, RefreshOutlined,
-  HubOutlined, CheckOutlined, PersonOutline, AddOutlined,
+  SendOutlined, StopOutlined, AutoAwesome, ContentCopyOutlined, RefreshOutlined,
+  CheckOutlined, SearchOutlined, KeyboardArrowDownOutlined,
 } from '@mui/icons-material';
 import { useChat } from '@/hooks/useChat';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -15,10 +15,17 @@ import AppShell from '@/components/AppShell';
 import type { ChatMessage } from '@/types/chat';
 
 const SUGGESTIONS = [
-  { icon: <BoltOutlined />, label: 'Explain quantum computing', prompt: 'Explain quantum computing in simple terms that a 10-year-old could understand.' },
-  { icon: <AutoAwesome />, label: 'Write a poem', prompt: 'Write a short, evocative poem about a sunrise in a cyberpunk city.' },
-  { icon: <HubOutlined />, label: 'Debug my code', prompt: 'Help me debug a TypeScript error: "Type \'undefined\' is not assignable to type \'string\'".' },
-  { icon: <AddOutlined />, label: 'Brainstorm ideas', prompt: 'Give me 5 creative product names for an AI-powered design tool.' },
+  { icon: '💡', label: 'Explain a concept', prompt: 'Explain how transformer attention works in simple terms.' },
+  { icon: '✍️', label: 'Write something', prompt: 'Write a short, evocative poem about a sunrise in a cyberpunk city.' },
+  { icon: '🧑‍💻', label: 'Debug my code', prompt: 'Help me debug a TypeScript error: object is possibly undefined.' },
+  { icon: '🧠', label: 'Brainstorm ideas', prompt: 'Give me 5 creative product names for an AI-powered design tool.' },
+];
+
+const STARTER_PROMPTS = [
+  'What can you help me with?',
+  'Compare React and Svelte for a new project',
+  'Summarize the last quarter results',
+  'Draft a polite follow-up email',
 ];
 
 export default function ChatPage() {
@@ -26,7 +33,7 @@ export default function ChatPage() {
   const chat = useChat();
   const [input, setInput] = useState('');
   const [model, setModel] = useState('');
-  const [models, setModels] = useState<Array<{ id: string }>>([]);
+  const [models, setModels] = useState<Array<{ id: string; provider?: string }>>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -43,7 +50,7 @@ export default function ChatPage() {
     setModelsLoading(true);
     fetch('/api/proxy/models')
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { data?: Array<{ id: string }> } | null) => {
+      .then((data: { data?: Array<{ id: string; provider?: string }> } | null) => {
         if (cancelled) return;
         if (data?.data) {
           setModels(data.data);
@@ -88,14 +95,12 @@ export default function ChatPage() {
   return (
     <AppShell
       rightSlot={
-        <Stack direction="row" spacing={1} alignItems="center">
-          <ModelPicker
-            value={model}
-            options={models.map((m) => m.id)}
-            loading={modelsLoading}
-            onChange={setModel}
-          />
-        </Stack>
+        <ModelPicker
+          value={model}
+          models={models}
+          loading={modelsLoading}
+          onChange={setModel}
+        />
       }
     >
       <Box
@@ -110,14 +115,14 @@ export default function ChatPage() {
         {isEmpty ? (
           <EmptyHero
             name={settings.name}
-            onSuggestion={(prompt) => {
+            onPrompt={(prompt) => {
               setInput(prompt);
               inputRef.current?.focus();
             }}
           />
         ) : (
-          <Box sx={{ maxWidth: 800, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
-            <Stack spacing={4}>
+          <Box sx={{ maxWidth: 760, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
+            <Stack spacing={5}>
               {chat.messages.map((message, index) => (
                 <MessageBubble
                   key={message.id}
@@ -161,28 +166,28 @@ export default function ChatPage() {
           position: 'sticky',
           bottom: 0,
           px: { xs: 2, md: 4 },
-          pb: 3,
+          pb: { xs: 2, md: 3 },
           pt: 2,
-          background: 'linear-gradient(180deg, transparent 0%, rgba(9,9,11,0.85) 30%, rgba(9,9,11,0.95) 100%)',
+          background: 'linear-gradient(180deg, transparent 0%, rgba(9,9,11,0.85) 30%, rgba(9,9,11,0.98) 100%)',
           backdropFilter: 'blur(12px)',
         }}
       >
-        <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+        <Box sx={{ maxWidth: 760, mx: 'auto' }}>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'flex-end',
               gap: 1,
-              p: 1.5,
+              p: 1.25,
               borderRadius: 3,
               border: '1px solid rgba(161, 161, 170, 0.15)',
               background: 'rgba(24, 24, 27, 0.7)',
               backdropFilter: 'blur(20px)',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-              transition: 'border-color 0.2s, box-shadow 0.2s',
+              transition: 'all 0.2s',
               '&:focus-within': {
                 borderColor: 'rgba(139, 92, 246, 0.5)',
-                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.2)',
+                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.18)',
               },
             }}
           >
@@ -193,33 +198,33 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Message Flux AI · ${model || 'select model'}`}
+              placeholder="Message Flux AI…"
               fullWidth
               variant="standard"
               disabled={chat.isStreaming}
               InputProps={{
                 disableUnderline: true,
-                sx: { fontSize: 15, px: 1, py: 0.5 },
+                sx: { fontSize: 15, px: 1.5, py: 0.5 },
               }}
               sx={{ flex: 1 }}
             />
             {chat.isStreaming ? (
-              <Tooltip title="Stop">
+              <Tooltip title="Stop generating">
                 <IconButton
                   onClick={handleAbort}
                   sx={{
                     bgcolor: 'error.main',
                     color: 'white',
                     '&:hover': { bgcolor: 'error.dark' },
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                   }}
                 >
                   <StopOutlined sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             ) : (
-              <Tooltip title="Send">
+              <Tooltip title="Send (Enter)">
                 <span>
                   <IconButton
                     type="submit"
@@ -227,26 +232,30 @@ export default function ChatPage() {
                     sx={{
                       background: input.trim()
                         ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                        : 'rgba(161, 161, 170, 0.1)',
+                        : 'rgba(161, 161, 170, 0.08)',
                       color: input.trim() ? 'white' : 'text.secondary',
                       '&:hover': {
                         background: input.trim()
                           ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
-                          : 'rgba(161, 161, 170, 0.15)',
+                          : 'rgba(161, 161, 170, 0.14)',
                       },
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       transition: 'all 0.2s',
                     }}
                   >
-                    <SendOutlined sx={{ fontSize: 18 }} />
+                    <SendOutlined sx={{ fontSize: 16 }} />
                   </IconButton>
                 </span>
               </Tooltip>
             )}
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1.5, fontSize: 11 }}>
-            Flux AI · streaming via your proxy · your data stays in your browser
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', textAlign: 'center', mt: 1.5, fontSize: 11, opacity: 0.7 }}
+          >
+            Flux AI · {model || 'no model selected'} · your data stays in your browser
           </Typography>
         </Box>
       </Box>
@@ -254,7 +263,7 @@ export default function ChatPage() {
   );
 }
 
-function EmptyHero({ name, onSuggestion }: { name: string; onSuggestion: (prompt: string) => void }) {
+function EmptyHero({ name, onPrompt }: { name: string; onPrompt: (prompt: string) => void }) {
   return (
     <Box
       sx={{
@@ -265,40 +274,36 @@ function EmptyHero({ name, onSuggestion }: { name: string; onSuggestion: (prompt
         justifyContent: 'center',
         textAlign: 'center',
         px: 3,
-        py: 8,
-        animation: 'fadeUp 0.6s ease-out',
+        py: { xs: 6, md: 10 },
+        animation: 'fadeUp 0.5s ease-out',
         '@keyframes fadeUp': {
-          from: { opacity: 0, transform: 'translateY(20px)' },
+          from: { opacity: 0, transform: 'translateY(16px)' },
           to: { opacity: 1, transform: 'translateY(0)' },
         },
       }}
     >
       <Box
         sx={{
-          width: 64,
-          height: 64,
-          borderRadius: 3,
+          width: 56,
+          height: 56,
+          borderRadius: 2.5,
           background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 8px 32px rgba(139,92,246,0.35)',
+          boxShadow: '0 8px 24px rgba(139,92,246,0.35)',
           mb: 3,
-          animation: 'float 4s ease-in-out infinite',
-          '@keyframes float': {
-            '0%, 100%': { transform: 'translateY(0px)' },
-            '50%': { transform: 'translateY(-8px)' },
-          },
         }}
       >
-        <AutoAwesome sx={{ color: 'white', fontSize: 32 }} />
+        <AutoAwesome sx={{ color: 'white', fontSize: 28 }} />
       </Box>
       <Typography
         variant="h3"
         sx={{
           fontWeight: 700,
           letterSpacing: '-0.02em',
-          fontSize: { xs: 32, md: 44 },
+          fontSize: { xs: 30, md: 40 },
+          lineHeight: 1.1,
           background: 'linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #ec4899 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
@@ -307,37 +312,68 @@ function EmptyHero({ name, onSuggestion }: { name: string; onSuggestion: (prompt
       >
         Hello, {name.split(' ')[0]}.
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ fontSize: 17, maxWidth: 500, mb: 5 }}>
-        How can I help you today?
+      <Typography variant="body1" color="text.secondary" sx={{ fontSize: 16, maxWidth: 460, mb: 5 }}>
+        Pick a starter or just start typing. Anything goes.
       </Typography>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, width: '100%', maxWidth: 640 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', maxWidth: 560, mb: 5 }}>
+        {STARTER_PROMPTS.map((p) => (
+          <Chip
+            key={p}
+            label={p}
+            onClick={() => onPrompt(p)}
+            sx={{
+              height: 34,
+              bgcolor: 'rgba(161, 161, 170, 0.08)',
+              border: '1px solid rgba(161, 161, 170, 0.12)',
+              color: 'text.primary',
+              fontWeight: 500,
+              fontSize: 13,
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: 'rgba(139, 92, 246, 0.10)',
+                borderColor: 'rgba(139, 92, 246, 0.4)',
+              },
+              transition: 'all 0.15s',
+            }}
+          />
+        ))}
+      </Box>
+
+      <Divider sx={{ width: '100%', maxWidth: 560, mb: 2, borderColor: 'rgba(161, 161, 170, 0.08)' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontSize: 11, letterSpacing: '0.08em' }}>
+          TRY ONE OF THESE
+        </Typography>
+      </Divider>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25, width: '100%', maxWidth: 560 }}>
         {SUGGESTIONS.map((s, i) => (
           <Box
             key={s.label}
-            onClick={() => onSuggestion(s.prompt)}
+            onClick={() => onPrompt(s.prompt)}
             sx={{
-              p: 2,
-              borderRadius: 3,
-              border: '1px solid rgba(161, 161, 170, 0.1)',
+              p: 1.75,
+              borderRadius: 2.5,
+              border: '1px solid rgba(161, 161, 170, 0.10)',
               background: 'rgba(24, 24, 27, 0.4)',
-              backdropFilter: 'blur(8px)',
               textAlign: 'left',
               cursor: 'pointer',
-              transition: 'all 0.2s',
-              animation: `fadeUp 0.6s ease-out ${0.1 + i * 0.08}s both`,
+              transition: 'all 0.15s',
+              animation: `fadeUp 0.5s ease-out ${0.1 + i * 0.06}s both`,
               '&:hover': {
-                borderColor: 'rgba(139, 92, 246, 0.4)',
-                background: 'rgba(139, 92, 246, 0.05)',
-                transform: 'translateY(-2px)',
+                borderColor: 'rgba(139, 92, 246, 0.35)',
+                background: 'rgba(139, 92, 246, 0.04)',
+                transform: 'translateY(-1px)',
               },
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box sx={{ color: 'primary.light', display: 'flex' }}>{s.icon}</Box>
-              <Typography variant="body2" fontWeight={600}>{s.label}</Typography>
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{s.icon}</Typography>
+              <Typography variant="body2" fontWeight={600} sx={{ fontSize: 13.5 }}>
+                {s.label}
+              </Typography>
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 12, lineHeight: 1.5 }}>
               {s.prompt}
             </Typography>
           </Box>
@@ -369,34 +405,37 @@ function MessageBubble({
     <Box
       sx={{
         display: 'flex',
-        gap: 2,
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        animation: 'fadeIn 0.3s ease-out',
+        gap: 1.5,
+        flexDirection: 'row',
+        animation: 'fadeIn 0.25s ease-out',
         '@keyframes fadeIn': {
-          from: { opacity: 0, transform: 'translateY(8px)' },
+          from: { opacity: 0, transform: 'translateY(6px)' },
           to: { opacity: 1, transform: 'translateY(0)' },
         },
       }}
     >
       <Avatar
         sx={{
-          width: 32,
-          height: 32,
-          fontSize: 14,
+          width: 30,
+          height: 30,
+          fontSize: 13,
           fontWeight: 700,
+          flexShrink: 0,
           mt: 0.5,
           background: isUser
-            ? 'rgba(161, 161, 170, 0.15)'
+            ? 'rgba(161, 161, 170, 0.12)'
             : 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
           color: isUser ? 'text.primary' : 'white',
         }}
       >
-        {isUser ? <PersonOutline sx={{ fontSize: 18 }} /> : <AutoAwesome sx={{ fontSize: 16 }} />}
+        {isUser
+          ? userName.trim().charAt(0).toUpperCase() || 'U'
+          : <AutoAwesome sx={{ fontSize: 16 }} />}
       </Avatar>
 
-      <Box sx={{ flex: 1, minWidth: 0, maxWidth: '85%' }}>
-        <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 0.5, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-          <Typography variant="caption" fontWeight={600} color="text.primary">
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 0.5 }}>
+          <Typography variant="caption" fontWeight={600} color="text.primary" sx={{ fontSize: 13 }}>
             {isUser ? userName : 'Flux AI'}
           </Typography>
           {!isUser && message.model && (
@@ -408,15 +447,15 @@ function MessageBubble({
 
         <Box
           sx={{
-            p: 2,
-            borderRadius: 3,
+            p: 1.75,
+            borderRadius: 2,
             background: isUser
-              ? 'rgba(139, 92, 246, 0.12)'
-              : 'rgba(24, 24, 27, 0.6)',
+              ? 'rgba(139, 92, 246, 0.10)'
+              : 'transparent',
             border: isUser
-              ? '1px solid rgba(139, 92, 246, 0.25)'
-              : '1px solid rgba(161, 161, 170, 0.08)',
-            backdropFilter: 'blur(8px)',
+              ? '1px solid rgba(139, 92, 246, 0.22)'
+              : 'none',
+            borderLeft: isUser ? 'none' : '2px solid rgba(139, 92, 246, 0.35)',
           }}
         >
           <Typography
@@ -424,8 +463,8 @@ function MessageBubble({
             sx={{
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              fontSize: 15,
-              lineHeight: 1.7,
+              fontSize: 14.5,
+              lineHeight: 1.65,
               color: 'text.primary',
             }}
           >
@@ -435,16 +474,16 @@ function MessageBubble({
         </Box>
 
         {!isUser && !isStreaming && message.content && (
-          <Stack direction="row" spacing={0.5} sx={{ mt: 1, opacity: 0.7 }}>
+          <Stack direction="row" spacing={0.5} sx={{ mt: 0.75, opacity: 0.6, '&:hover': { opacity: 1 }, transition: 'opacity 0.15s' }}>
             <Tooltip title={copied ? 'Copied' : 'Copy'}>
-              <IconButton size="small" onClick={handleCopy} sx={{ color: 'text.secondary' }}>
-                {copied ? <CheckOutlined sx={{ fontSize: 16 }} /> : <ContentCopyOutlined sx={{ fontSize: 16 }} />}
+              <IconButton size="small" onClick={handleCopy} sx={{ color: 'text.secondary', width: 28, height: 28 }}>
+                {copied ? <CheckOutlined sx={{ fontSize: 14 }} /> : <ContentCopyOutlined sx={{ fontSize: 14 }} />}
               </IconButton>
             </Tooltip>
             {isLast && (
               <Tooltip title="Regenerate">
-                <IconButton size="small" onClick={() => void onRegenerate()} sx={{ color: 'text.secondary' }}>
-                  <RefreshOutlined sx={{ fontSize: 16 }} />
+                <IconButton size="small" onClick={() => void onRegenerate()} sx={{ color: 'text.secondary', width: 28, height: 28 }}>
+                  <RefreshOutlined sx={{ fontSize: 14 }} />
                 </IconButton>
               </Tooltip>
             )}
@@ -466,8 +505,8 @@ function Cursor() {
         background: 'linear-gradient(180deg, #a78bfa 0%, #ec4899 100%)',
         borderRadius: 0.5,
         ml: 0.3,
-        verticalAlign: '-0.15em',
-        animation: 'blink 1s steps(1) infinite',
+        verticalAlign: '-0.18em',
+        animation: 'blink 1.05s steps(2) infinite',
         '@keyframes blink': {
           '0%, 50%': { opacity: 1 },
           '50.01%, 100%': { opacity: 0 },
@@ -477,31 +516,66 @@ function Cursor() {
   );
 }
 
+interface ModelItem {
+  id: string;
+  provider?: string;
+}
+
 function ModelPicker({
-  value, options, loading, onChange,
+  value, models, loading, onChange,
 }: {
   value: string;
-  options: string[];
+  models: ModelItem[];
   loading: boolean;
   onChange: (next: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [filter, setFilter] = useState('');
-  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const open = Boolean(anchorEl);
 
-  const filtered = useMemo(() => {
-    if (!filter) return options;
-    const q = filter.toLowerCase();
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, filter]);
+  const grouped = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const filtered = q
+      ? models.filter((m) => m.id.toLowerCase().includes(q) || (m.provider ?? '').toLowerCase().includes(q))
+      : models;
+
+    const groups: Record<string, ModelItem[]> = {};
+    for (const m of filtered) {
+      const key = m.provider ?? m.id.split('/')[0] ?? 'other';
+      (groups[key] ||= []).push(m);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [models, filter]);
+
+  const handleClose = () => {
+    setAnchorEl(null);
+    setFilter('');
+  };
+
+  const displayValue = value || 'Select model';
+  const displayProvider = value ? value.split('/')[0] : null;
 
   return (
     <>
       <Button
-        ref={anchorRef}
-        onClick={() => setOpen(true)}
-        startIcon={loading ? <CircularProgress size={12} /> : <BoltOutlined sx={{ fontSize: 16 }} />}
-        endIcon={<Box component="span" sx={{ fontSize: 10, opacity: 0.6 }}>▾</Box>}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        disabled={loading}
+        startIcon={
+          loading ? (
+            <CircularProgress size={12} sx={{ color: 'text.secondary' }} />
+          ) : (
+            <Box
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: 'success.main',
+                boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)',
+              }}
+            />
+          )
+        }
+        endIcon={<KeyboardArrowDownOutlined sx={{ fontSize: 16, opacity: 0.6 }} />}
         sx={{
           color: 'text.primary',
           bgcolor: 'rgba(161, 161, 170, 0.08)',
@@ -513,82 +587,145 @@ function ModelPicker({
           fontSize: 13,
           fontWeight: 500,
           textTransform: 'none',
+          maxWidth: 260,
+          justifyContent: 'flex-start',
           '&:hover': { bgcolor: 'rgba(161, 161, 170, 0.14)' },
         }}
       >
-        {value || 'Select model'}
+        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+          {displayValue}
+        </Box>
       </Button>
-      {open && (
-        <Box
-          onClick={() => setOpen(false)}
-          sx={{ position: 'fixed', inset: 0, zIndex: 1300 }}
-        >
-          <Box
-            onClick={(e) => e.stopPropagation()}
-            sx={{
-              position: 'absolute',
-              top: anchorRef.current?.getBoundingClientRect().bottom ?? 60,
-              right: 16,
-              width: 360,
-              maxHeight: 480,
-              display: 'flex',
-              flexDirection: 'column',
-              borderRadius: 3,
-              background: 'rgba(24, 24, 27, 0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(161, 161, 170, 0.15)',
+
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 1,
+              width: 380,
+              maxHeight: 540,
+              background: 'rgba(20, 20, 23, 0.96)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(161, 161, 170, 0.12)',
               boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+              borderRadius: 2.5,
               overflow: 'hidden',
+            },
+          },
+        }}
+      >
+        <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(161, 161, 170, 0.08)' }}>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            placeholder="Search models…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              sx: { fontSize: 14, bgcolor: 'rgba(161, 161, 170, 0.06)' },
             }}
-          >
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(161, 161, 170, 0.08)' }}>
-              <TextField
-                autoFocus
-                fullWidth
-                size="small"
-                placeholder="Search models…"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                sx={{ '& .MuiOutlinedInput-root': { fontSize: 14 } }}
-              />
+          />
+          {displayProvider && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontSize: 11 }}>
+              Current: <Box component="span" sx={{ color: 'primary.light', fontFamily: 'monospace' }}>{value}</Box>
+            </Typography>
+          )}
+        </Box>
+
+        <Box sx={{ overflowY: 'auto', maxHeight: 440 }}>
+          {loading && (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <CircularProgress size={20} />
             </Box>
-            <Box sx={{ overflowY: 'auto', flex: 1, py: 0.5 }}>
-              {loading && (
-                <Box sx={{ p: 3, textAlign: 'center' }}>
-                  <CircularProgress size={20} />
-                </Box>
-              )}
-              {!loading && filtered.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                  No models match &ldquo;{filter}&rdquo;
-                </Typography>
-              )}
-              {filtered.map((id) => (
-                <Box
-                  key={id}
-                  onClick={() => { onChange(id); setOpen(false); setFilter(''); }}
+          )}
+          {!loading && grouped.length === 0 && (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                No models match &ldquo;{filter}&rdquo;
+              </Typography>
+            </Box>
+          )}
+          {!loading && grouped.map(([provider, items]) => (
+            <Box key={provider}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1,
+                  position: 'sticky',
+                  top: 0,
+                  background: 'rgba(20, 20, 23, 0.95)',
+                  backdropFilter: 'blur(8px)',
+                  borderBottom: '1px solid rgba(161, 161, 170, 0.05)',
+                }}
+              >
+                <Typography
+                  variant="caption"
                   sx={{
-                    px: 2,
-                    py: 1.2,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: id === value ? 'rgba(139, 92, 246, 0.12)' : 'transparent',
-                    '&:hover': { background: id === value ? 'rgba(139, 92, 246, 0.15)' : 'rgba(161, 161, 170, 0.06)' },
-                    transition: 'background 0.1s',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'text.secondary',
                   }}
                 >
-                  <Typography variant="body2" sx={{ fontSize: 13, fontFamily: 'monospace' }}>
-                    {id}
-                  </Typography>
-                  {id === value && <CheckOutlined sx={{ fontSize: 16, color: 'primary.light' }} />}
-                </Box>
-              ))}
+                  {provider} <Box component="span" sx={{ opacity: 0.5 }}>· {items.length}</Box>
+                </Typography>
+              </Box>
+              {items.map((m) => {
+                const selected = m.id === value;
+                return (
+                  <Box
+                    key={m.id}
+                    onClick={() => { onChange(m.id); handleClose(); }}
+                    sx={{
+                      px: 2,
+                      py: 0.85,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 1.5,
+                      background: selected ? 'rgba(139, 92, 246, 0.12)' : 'transparent',
+                      borderLeft: selected ? '2px solid' : '2px solid transparent',
+                      borderColor: selected ? 'primary.light' : 'transparent',
+                      '&:hover': {
+                        background: selected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(161, 161, 170, 0.05)',
+                      },
+                      transition: 'background 0.1s',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 12.5,
+                        fontFamily: '"JetBrains Mono", "SF Mono", monospace',
+                        color: 'text.primary',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1,
+                      }}
+                    >
+                      {m.id}
+                    </Typography>
+                    {selected && <CheckOutlined sx={{ fontSize: 16, color: 'primary.light', flexShrink: 0 }} />}
+                  </Box>
+                );
+              })}
             </Box>
-          </Box>
+          ))}
         </Box>
-      )}
+      </Popover>
     </>
   );
 }
