@@ -56,11 +56,11 @@ export default function ModelPicker({ value, onChange, filter, placeholder = 'Se
           color: 'text.primary', bgcolor: 'rgba(161,161,170,0.08)',
           border: '1px solid rgba(161,161,170,0.12)', borderRadius: 2,
           px: 1.5, py: 0.5, minHeight: 36, fontSize: 13, fontWeight: 500,
-          textTransform: 'none', maxWidth: 260, justifyContent: 'flex-start',
+          textTransform: 'none', maxWidth: { xs: 150, sm: 260 }, justifyContent: 'flex-start',
           '&:hover': { bgcolor: 'rgba(161,161,170,0.14)' },
         }}
       >
-        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, fontFamily: 'monospace' }}>
+        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: { xs: 100, sm: 200 }, fontFamily: 'monospace' }}>
           {value || placeholder}
         </Box>
       </Button>
@@ -74,7 +74,7 @@ export default function ModelPicker({ value, onChange, filter, placeholder = 'Se
         slotProps={{
           paper: {
             sx: {
-              mt: 1, width: 380, maxHeight: 540,
+              mt: 1, width: { xs: 'calc(100vw - 32px)', sm: 380 }, maxWidth: 380, maxHeight: 540,
               background: 'rgba(20,20,23,0.97)', backdropFilter: 'blur(24px)',
               border: '1px solid rgba(161,161,170,0.12)',
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)', borderRadius: 2.5, overflow: 'hidden',
