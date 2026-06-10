@@ -57,7 +57,14 @@ const Markdown = React.memo(function Markdown({ children }: { children: string }
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={{ pre: CodeBlock }}
+        components={{
+          pre: CodeBlock,
+          table: ({ children }) => (
+            <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+              <table>{children}</table>
+            </Box>
+          ),
+        }}
       >
         {children}
       </ReactMarkdown>
