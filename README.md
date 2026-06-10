@@ -116,3 +116,56 @@ WHERE table_schema = 'public' AND table_name = 'users';
   reach the client.
 - The default model is `chat`. The model picker lists everything the proxy exposes
   at `/v1/models`.
+
+## Troubleshooting
+
+### `PrismaClientKnownRequestError: P1008 — Operations have timed out` on first request
+
+The lazy `PrismaClient` proxy in `src/lib/prisma.ts` only constructs the
+underlying client on the first DB call, so a wrong `DATABASE_URL` does **not**
+fail at boot — it surfaces as a 30s+ timeout on the first request (typically
+`POST /api/auth/register` or `POST /api/auth/login`).
+
+This is a runtime misconfig, almost always one of:
+
+1. **Wrong host or port** — the URL is well-formed but the container can't reach
+   the host:port (DNS not resolved, service not on the target network, wrong
+   port). The URL is baked into the image at build time by the Dockerfile's
+   `VERSION` arg → env-file copy, so a re-build with the right `VERSION` is
+   usually required.
+2. **Bad scheme** — anything other than `postgresql://` / `postgres://`.
+3. **Missing port** — Postgres URLs without an explicit port default silently
+   in some libraries; the client now rejects this so it fails fast.
+4. **Trailing whitespace or quote characters** in the env file.
+
+Use the health probe to confirm DB reachability independently of the auth
+flow:
+
+```bash
+curl -s http://localhost:3008/api/health | jq
+# → { "ok": true,  "db": "up",   "latencyMs": 12 }
+# → { "ok": false, "db": "down", "error": "...", "databaseHost": "postgresql://flux_ai:***@db:5432/flux_ai" }
+```
+
+The error response includes a redacted `databaseHost` so you can verify which
+URL the running container is actually using.
+
+To inspect the URL baked into a running container:
+
+```bash
+docker exec <container> sh -c 'grep ^DATABASE_URL .env | sed "s/:[^:@]*@/:***@/"'
+```
+
+To rebuild against the right environment:
+
+```bash
+docker build --build-arg VERSION=uat    -t flux-ai:uat    .   # uses .env.uat
+docker build --build-arg VERSION=latest -t flux-ai:latest .   # uses .env.production
+# (no VERSION arg)                                            # uses .env.development
+```
+
+### `DATABASE_URL is not set` at request time
+
+The env file matching the build's `VERSION` arg was missing or empty. Confirm
+the file exists at build context root (`./.env.uat`, `./.env.production`, or
+`./.env.development` for the default `VERSION`).
