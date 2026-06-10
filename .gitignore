@@ -48,3 +48,7 @@ test-results/
 playwright-report/
 playwright/.cache/
 .playwright-mcp/
+
+# Local verification screenshots (dev only)
+live-login.png
+login-*.png

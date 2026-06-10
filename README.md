@@ -56,21 +56,58 @@ Register an account, connect your proxy on the config screen, and start chatting
 
 ## Scripts
 
-| Script | Description |
-| --- | --- |
-| `pnpm dev` | Dev server on port 3008 |
-| `pnpm build` | `prisma generate` + production build |
-| `pnpm start` | Start the production build |
-| `pnpm db:push` | Push the Prisma schema to the database |
-| `pnpm db:studio` | Open Prisma Studio |
-| `pnpm test` | Unit tests (Vitest) |
-| `pnpm e2e` | End-to-end tests (Playwright) — see `.env.e2e.example` |
+| Script           | Description                                            |
+| ---------------- | ------------------------------------------------------ |
+| `pnpm dev`       | Dev server on port 3008                                |
+| `pnpm build`     | `prisma generate` + production build                   |
+| `pnpm start`     | Start the production build                             |
+| `pnpm db:push`   | Push the Prisma schema to the database                 |
+| `pnpm db:studio` | Open Prisma Studio                                     |
+| `pnpm test`      | Unit tests (Vitest)                                    |
+| `pnpm e2e`       | End-to-end tests (Playwright) — see `.env.e2e.example` |
 
 ## Database
 
 The Prisma client is generated into `src/generated/prisma` (git-ignored) and uses
 the `pg` driver adapter required by Prisma 7. Models: `User`, `Config`,
 `Conversation`, `Message`, `GeneratedImage`.
+
+### Granting privileges to the app role
+
+Both the application database and the connecting role are named `flux_ai`. If
+the connection role lacks DML privileges on the schema (e.g. you see
+`permission denied for table users` from Prisma), grant them once from a role
+that **owns** the schema (typically the `postgres` superuser or the role that
+ran the migration). Run as that owner:
+
+```sql
+-- Run with the schema owner (e.g. postgres / admin), NOT as flux_ai.
+GRANT USAGE ON SCHEMA public TO flux_ai;
+
+GRANT ALL PRIVILEGES
+  ON ALL TABLES IN SCHEMA public
+  TO flux_ai;
+
+GRANT ALL PRIVILEGES
+  ON ALL SEQUENCES IN SCHEMA public
+  TO flux_ai;
+
+-- Future tables created by `prisma migrate` / `db push` inherit the same access.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON TABLES TO flux_ai;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON SEQUENCES TO flux_ai;
+```
+
+Verify with:
+
+```sql
+SELECT grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public' AND table_name = 'users';
+-- `flux_ai` should appear with INSERT/UPDATE/SELECT/DELETE
+```
 
 ## Notes
 
