@@ -1,5 +1,9 @@
 # Flux AI
 
+[![CI](https://github.com/fluxvane/fluxai/actions/workflows/ci.yml/badge.svg)](https://github.com/fluxvane/fluxai/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
 A polished chat + image studio over any OpenAI-compatible proxy. Next.js 15 (App
 Router) + MUI, with JWT auth, per-user proxy configuration, conversation history,
 analytics, and image generation — all backed by a single Postgres database via
@@ -18,6 +22,12 @@ Prisma 7.
   gallery (graceful error UI when the upstream image backend is unavailable).
 - **Analytics** — conversations, messages, tokens, model usage, and a 14-day
   activity chart, aggregated from the database.
+
+## Screenshots
+
+> Screenshots will be added once we have a public demo URL. In the
+> meantime, see `docs/assets/screenshots/README.md` for the planned
+> layout and how to contribute one.
 
 ## Stack
 
@@ -169,3 +179,17 @@ docker build --build-arg VERSION=latest -t flux-ai:latest .   # uses .env.produc
 The env file matching the build's `VERSION` arg was missing or empty. Confirm
 the file exists at build context root (`./.env.uat`, `./.env.production`, or
 `./.env.development` for the default `VERSION`).
+
+## Contributing
+
+Issues and PRs are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for
+how to file a bug, suggest a feature, and submit changes.
+
+## Security
+
+To report a vulnerability privately, see [SECURITY.md](./SECURITY.md).
+Please **do not** file public issues for security reports.
+
+## License
+
+[MIT](./LICENSE) — Copyright (c) 2026 Fluxvane.
