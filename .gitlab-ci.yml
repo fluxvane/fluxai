@@ -3,19 +3,18 @@
 # Repo: gitlab.com/fluxvane/apps/flux-ai
 # Domain: https://dev-ai.fluxvane.com
 #
-# Pipeline flow:
-#   1. build  → Docker image → registry.gitlab.com/fluxvane/apps/flux-ai
-#   2. deploy → ArgoCD sync  → flux-ai-web-dev
+# Pipeline flow (GitOps pull model):
+#   1. build         → push 2 tags to registry.gitlab.com/fluxvane/apps/flux-ai
+#                        - dev             (mutable, for debug)
+#                        - dev-<short-sha> (immutable, what gets deployed)
+#   2. gitops-update → write dev-<short-sha> into infra-gitops dev.yaml + commit
+#                      → ArgoCD (automated+selfHeal) auto-syncs the new tag
 #
-# Registry: GitLab Container Registry. The fluxvane group sets
-# REGISTRY_URL/USER/PASSWORD to shiningtree creds, but those are
-# overridden by PROJECT-level CI/CD variables on this project pointing
-# at the GitLab registry + job token ($CI_REGISTRY / $CI_REGISTRY_USER
-# / $CI_REGISTRY_PASSWORD).
+# No more argocd-sync from CI — Git is the single source of truth.
 #
 # Required CI/CD variables:
 #   (project) REGISTRY_URL, REGISTRY_USER, REGISTRY_PASSWORD — GitLab registry + job token
-#   (group)   ARGO_AUTH_TOKEN — ArgoCD admin token
+#   (project) GITOPS_TOKEN — write token for the infra-gitops repo (masked)
 # ============================================================
 
 include:
@@ -45,16 +44,16 @@ variables:
   UAT_BRANCH: ""
   PROD_BRANCH_PRIMARY: ""
 
-  # ArgoCD
-  ARGO_ENABLED: "true"
-  ARGO_SERVER: "argocd.shiningtree.co"
-  ARGO_APP_PREFIX: "flux-ai"
-  ARGO_SERVICE_NAME: "web"
-  ARGOCD_APP_DEV: "flux-ai-web-dev"
-  ARGO_INSECURE: "true"
-  ARGO_SYNC_TIMEOUT: "300"
-  ARGO_SYNC_PRUNE: "true"
-  ARGO_ROLLOUT_RESTART: "true"
+  # Deploy via GitOps: commit the new image tag into infra-gitops,
+  # then ArgoCD (automated + selfHeal) picks it up. No argocd-sync from CI.
+  ARGO_ENABLED: "false"
+  ENABLE_GITOPS: "true"
+  GITOPS_REPO: "https://gitlab.com/fluxvane/devops/infra-gitops.git"
+  GITOPS_BRANCH: "main"
+  GITOPS_TENANT: "fluxvane"
+  GITOPS_PROJECT: "flux-ai"
+  # "<valuesKey>:<iacDir>" — flux-ai has a single web component.
+  GITOPS_COMPONENTS: "web:web"
 
   # Deploy toggles — dev only
   ENABLE_DEV_DEPLOY: "true"
@@ -63,6 +62,5 @@ variables:
   ENABLE_PROD_DEPLOY: "false"
 
 # No local job overrides — the included `frontend-service.yml` template
-# already defines `build-dev` / `build-uat` / `build-prod` and all
-# `argocd-sync-*` jobs. All deps are public on npmjs so no NPM_TOKEN
-# build-arg is required.
+# defines build-dev and the gitops-update job. All deps are public on
+# npmjs so no NPM_TOKEN build-arg is required.
