@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import { Box, IconButton, Tooltip } from '@mui/material';
-import { ContentCopyOutlined, CheckOutlined } from '@mui/icons-material';
+import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import { Box, IconButton, Tooltip } from "@mui/material";
+import { ContentCopyOutlined, CheckOutlined } from "@mui/icons-material";
 
 function CodeBlock({ children }: { children?: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
@@ -22,19 +22,28 @@ function CodeBlock({ children }: { children?: React.ReactNode }) {
   };
 
   return (
-    <Box sx={{ position: 'relative', '&:hover .flux-copy': { opacity: 1 } }}>
-      <Tooltip title={copied ? 'Copied' : 'Copy'}>
+    <Box sx={{ position: "relative", "&:hover .flux-copy": { opacity: 1 } }}>
+      <Tooltip title={copied ? "Copied" : "Copy"}>
         <IconButton
           className="flux-copy"
           size="small"
           onClick={handleCopy}
           sx={{
-            position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.15s',
-            color: 'text.secondary', bgcolor: 'rgba(0,0,0,0.4)',
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.6)', color: 'text.primary' },
+            position: "absolute",
+            top: 8,
+            right: 8,
+            opacity: 0,
+            transition: "opacity 0.15s",
+            color: "text.secondary",
+            bgcolor: "rgba(0,0,0,0.4)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.6)", color: "text.primary" },
           }}
         >
-          {copied ? <CheckOutlined sx={{ fontSize: 14 }} /> : <ContentCopyOutlined sx={{ fontSize: 14 }} />}
+          {copied ? (
+            <CheckOutlined sx={{ fontSize: 14 }} />
+          ) : (
+            <ContentCopyOutlined sx={{ fontSize: 14 }} />
+          )}
         </IconButton>
       </Tooltip>
       <pre>{children}</pre>
@@ -43,24 +52,31 @@ function CodeBlock({ children }: { children?: React.ReactNode }) {
 }
 
 function extractText(node: React.ReactNode): string {
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(extractText).join("");
   if (React.isValidElement(node)) {
     return extractText((node.props as { children?: React.ReactNode }).children);
   }
-  return '';
+  return "";
 }
 
-const Markdown = React.memo(function Markdown({ children }: { children: string }) {
+const Markdown = React.memo(function Markdown({
+  children,
+}: {
+  children: string;
+}) {
   return (
-    <Box className="flux-markdown" sx={{ fontSize: 14.5, lineHeight: 1.65, color: 'text.primary' }}>
+    <Box
+      className="flux-markdown"
+      sx={{ fontSize: 14.5, lineHeight: 1.65, color: "text.primary" }}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           pre: CodeBlock,
           table: ({ children }) => (
-            <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+            <Box sx={{ overflowX: "auto", maxWidth: "100%" }}>
               <table>{children}</table>
             </Box>
           ),

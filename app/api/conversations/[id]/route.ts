@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getAuth } from "@/lib/auth";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -21,14 +21,18 @@ interface SyncBody {
 }
 
 async function ownConversation(userId: string, id: string) {
-  const conv = await prisma.conversation.findUnique({ where: { id }, select: { userId: true } });
+  const conv = await prisma.conversation.findUnique({
+    where: { id },
+    select: { userId: true },
+  });
   if (!conv || conv.userId !== userId) return false;
   return true;
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
   const conversation = await prisma.conversation.findUnique({
@@ -40,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       model: true,
       updatedAt: true,
       messages: {
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
         select: {
           id: true,
           role: true,
@@ -54,7 +58,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   });
 
   if (!conversation || conversation.userId !== claims.sub) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   return NextResponse.json({
@@ -78,14 +82,17 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 // Replace the conversation's messages (and optionally title). Atomic.
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
   if (!(await ownConversation(claims.sub, id))) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const body = (await req.json().catch(() => ({}))) as SyncBody;
-  const messages = Array.isArray(body.messages) ? body.messages.slice(0, 500) : [];
+  const messages = Array.isArray(body.messages)
+    ? body.messages.slice(0, 500)
+    : [];
 
   const data: { title?: string } = {};
   if (body.title?.trim()) data.title = body.title.trim().slice(0, 120);
@@ -114,10 +121,11 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
   if (!(await ownConversation(claims.sub, id))) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   await prisma.conversation.delete({ where: { id } });

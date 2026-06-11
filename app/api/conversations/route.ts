@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getAuth } from "@/lib/auth";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function GET() {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const conversations = await prisma.conversation.findMany({
     where: { userId: claims.sub },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: { updatedAt: "desc" },
     select: {
       id: true,
       title: true,
@@ -39,11 +40,12 @@ interface CreateBody {
 
 export async function POST(req: NextRequest) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as CreateBody;
-  const title = (body.title?.trim() || 'New chat').slice(0, 120);
-  const model = body.model?.trim() || 'chat';
+  const title = (body.title?.trim() || "New chat").slice(0, 120);
+  const model = body.model?.trim() || "chat";
 
   const conversation = await prisma.conversation.create({
     data: { userId: claims.sub, title, model },

@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@/lib/auth';
-import { normalizeEndpoint, probeProxy } from '@/lib/user-config';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getAuth } from "@/lib/auth";
+import { normalizeEndpoint, probeProxy } from "@/lib/user-config";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 interface Body {
   endpoint?: string;
@@ -13,9 +13,12 @@ interface Body {
 
 export async function GET() {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const config = await prisma.config.findUnique({ where: { userId: claims.sub } });
+  const config = await prisma.config.findUnique({
+    where: { userId: claims.sub },
+  });
   if (!config) return NextResponse.json({ config: null });
 
   // Never return the raw apiKey to the client.
@@ -30,18 +33,25 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as Body;
-  const endpoint = normalizeEndpoint(body.endpoint ?? '');
-  const apiKey = body.apiKey?.trim() ?? '';
-  const defaultModel = body.defaultModel?.trim() || 'chat';
+  const endpoint = normalizeEndpoint(body.endpoint ?? "");
+  const apiKey = body.apiKey?.trim() ?? "";
+  const defaultModel = body.defaultModel?.trim() || "chat";
 
   if (!endpoint || !apiKey) {
-    return NextResponse.json({ error: 'Endpoint and API key are required.' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Endpoint and API key are required." },
+      { status: 400 },
+    );
   }
   if (!/^https?:\/\//i.test(endpoint)) {
-    return NextResponse.json({ error: 'Endpoint must start with http:// or https://' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Endpoint must start with http:// or https://" },
+      { status: 400 },
+    );
   }
 
   // Validate the credentials against the live endpoint before persisting,
@@ -49,7 +59,10 @@ export async function POST(req: NextRequest) {
   const probe = await probeProxy(endpoint, apiKey);
   if (!probe.ok) {
     return NextResponse.json(
-      { error: probe.message ?? 'Could not validate the endpoint and key.', status: probe.status },
+      {
+        error: probe.message ?? "Could not validate the endpoint and key.",
+        status: probe.status,
+      },
       { status: 422 },
     );
   }
@@ -60,33 +73,51 @@ export async function POST(req: NextRequest) {
     update: { endpoint, apiKey, defaultModel },
   });
 
-  return NextResponse.json({ ok: true, config: { endpoint, defaultModel, hasApiKey: true } });
+  return NextResponse.json({
+    ok: true,
+    config: { endpoint, defaultModel, hasApiKey: true },
+  });
 }
 
 // Update an existing config. apiKey is optional — when omitted the stored key
 // is reused. The resulting credentials are always re-validated before saving.
 export async function PATCH(req: NextRequest) {
   const claims = await getAuth();
-  if (!claims) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!claims)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const existing = await prisma.config.findUnique({ where: { userId: claims.sub } });
+  const existing = await prisma.config.findUnique({
+    where: { userId: claims.sub },
+  });
   if (!existing) {
-    return NextResponse.json({ error: 'No configuration to update yet.' }, { status: 404 });
+    return NextResponse.json(
+      { error: "No configuration to update yet." },
+      { status: 404 },
+    );
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
-  const endpoint = body.endpoint != null ? normalizeEndpoint(body.endpoint) : existing.endpoint;
+  const endpoint =
+    body.endpoint != null
+      ? normalizeEndpoint(body.endpoint)
+      : existing.endpoint;
   const apiKey = body.apiKey?.trim() || existing.apiKey;
   const defaultModel = body.defaultModel?.trim() || existing.defaultModel;
 
   if (!/^https?:\/\//i.test(endpoint)) {
-    return NextResponse.json({ error: 'Endpoint must start with http:// or https://' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Endpoint must start with http:// or https://" },
+      { status: 400 },
+    );
   }
 
   const probe = await probeProxy(endpoint, apiKey);
   if (!probe.ok) {
     return NextResponse.json(
-      { error: probe.message ?? 'Could not validate the endpoint and key.', status: probe.status },
+      {
+        error: probe.message ?? "Could not validate the endpoint and key.",
+        status: probe.status,
+      },
       { status: 422 },
     );
   }
@@ -96,5 +127,8 @@ export async function PATCH(req: NextRequest) {
     data: { endpoint, apiKey, defaultModel },
   });
 
-  return NextResponse.json({ ok: true, config: { endpoint, defaultModel, hasApiKey: true } });
+  return NextResponse.json({
+    ok: true,
+    config: { endpoint, defaultModel, hasApiKey: true },
+  });
 }

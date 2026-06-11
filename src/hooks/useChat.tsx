@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { ChatMessage, ChatRequest } from '../types/chat';
-import { useAuth } from '../contexts/AuthContext';
-import { splitThink } from '../lib/think';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import type { ChatMessage, ChatRequest } from "../types/chat";
+import { useAuth } from "../contexts/AuthContext";
+import { splitThink } from "../lib/think";
 
 export interface UseChatValue {
   messages: ChatMessage[];
@@ -21,7 +29,7 @@ export interface UseChatValue {
 
 const ChatContext = createContext<UseChatValue | undefined>(undefined);
 
-const CONVERSATIONS_CHANGED = 'flux_ai:conversations-changed';
+const CONVERSATIONS_CHANGED = "flux_ai:conversations-changed";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -38,7 +46,7 @@ function buildRequest(history: ChatMessage[], model: string): ChatRequest {
 }
 
 function notifyConversationsChanged() {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
   }
 }
@@ -48,7 +56,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState('chat');
+  const [model, setModel] = useState("chat");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -86,8 +94,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const persist = useCallback(async (id: string, msgs: ChatMessage[]) => {
     try {
       await fetch(`/api/conversations/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: msgs.map((m) => ({
             role: m.role,
@@ -109,9 +117,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     async (title: string, usedModel: string): Promise<string | null> => {
       if (conversationId) return conversationId;
       try {
-        const res = await fetch('/api/conversations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: title.slice(0, 80), model: usedModel }),
         });
         if (!res.ok) return null;
@@ -127,20 +135,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const runStream = useCallback(
-    async (history: ChatMessage[], assistantId: string, usedModel: string, convId: string | null) => {
+    async (
+      history: ChatMessage[],
+      assistantId: string,
+      usedModel: string,
+      convId: string | null,
+    ) => {
       const controller = new AbortController();
       abortRef.current = controller;
       setIsStreaming(true);
       setError(null);
 
-      let rawContent = '';
-      let rawReasoning = '';
+      let rawContent = "";
+      let rawReasoning = "";
       let promptTokens: number | undefined;
       let completionTokens: number | undefined;
 
       const applyDelta = () => {
         const { answer, think } = splitThink(rawContent);
-        const reasoning = (rawReasoning + (think ? `\n${think}` : '')).trim();
+        const reasoning = (rawReasoning + (think ? `\n${think}` : "")).trim();
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -151,47 +164,51 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       };
 
       try {
-        const response = await fetch('/api/proxy/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/proxy/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildRequest(history, usedModel)),
           signal: controller.signal,
         });
 
         if (!response.ok) {
-          const text = await response.text().catch(() => '');
+          const text = await response.text().catch(() => "");
           throw new Error(humanizeError(response.status, text));
         }
-        if (!response.body) throw new Error('No response body');
+        if (!response.body) throw new Error("No response body");
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = '';
+        let buffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
           for (const raw of lines) {
             const line = raw.trim();
-            if (!line || !line.startsWith('data:')) continue;
+            if (!line || !line.startsWith("data:")) continue;
             const payload = line.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
+            if (!payload || payload === "[DONE]") continue;
 
             try {
               const json = JSON.parse(payload) as {
-                choices?: Array<{ delta?: { content?: string; reasoning_content?: string } }>;
+                choices?: Array<{
+                  delta?: { content?: string; reasoning_content?: string };
+                }>;
                 usage?: { prompt_tokens?: number; completion_tokens?: number };
               };
               const delta = json.choices?.[0]?.delta;
-              if (delta?.reasoning_content) rawReasoning += delta.reasoning_content;
+              if (delta?.reasoning_content)
+                rawReasoning += delta.reasoning_content;
               if (delta?.content) rawContent += delta.content;
               if (json.usage) {
                 promptTokens = json.usage.prompt_tokens ?? promptTokens;
-                completionTokens = json.usage.completion_tokens ?? completionTokens;
+                completionTokens =
+                  json.usage.completion_tokens ?? completionTokens;
               }
               if (delta?.content || delta?.reasoning_content) applyDelta();
             } catch {
@@ -202,11 +219,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         // Finalize token counts on the assistant message.
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, promptTokens, completionTokens } : m)),
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, promptTokens, completionTokens } : m,
+          ),
         );
       } catch (err) {
-        if ((err as { name?: string }).name !== 'AbortError') {
-          setError(err instanceof Error ? err.message : 'Request failed');
+        if ((err as { name?: string }).name !== "AbortError") {
+          setError(err instanceof Error ? err.message : "Request failed");
         }
       } finally {
         abortRef.current = null;
@@ -224,15 +243,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const userMessage: ChatMessage = {
         id: newId(),
-        role: 'user',
+        role: "user",
         content: content.trim(),
         createdAt: new Date().toISOString(),
       };
       const assistantId = newId();
       const assistantMessage: ChatMessage = {
         id: assistantId,
-        role: 'assistant',
-        content: '',
+        role: "assistant",
+        content: "",
         createdAt: new Date().toISOString(),
         model: usedModel,
       };
@@ -252,7 +271,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // Find the last user message and drop everything after it.
     let lastUserIdx = -1;
     for (let i = current.length - 1; i >= 0; i--) {
-      if (current[i].role === 'user') {
+      if (current[i].role === "user") {
         lastUserIdx = i;
         break;
       }
@@ -263,8 +282,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const assistantId = newId();
     const assistantMessage: ChatMessage = {
       id: assistantId,
-      role: 'assistant',
-      content: '',
+      role: "assistant",
+      content: "",
       createdAt: new Date().toISOString(),
       model,
     };
@@ -277,7 +296,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       abort();
       try {
-        const res = await fetch(`/api/conversations/${id}`, { cache: 'no-store' });
+        const res = await fetch(`/api/conversations/${id}`, {
+          cache: "no-store",
+        });
         if (!res.ok) return;
         const data = (await res.json()) as {
           conversation: { id: string; model: string; messages: ChatMessage[] };
@@ -307,31 +328,48 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       loadConversation,
     }),
-    [messages, isStreaming, error, model, conversationId, send, regenerate, abort, newChat, loadConversation],
+    [
+      messages,
+      isStreaming,
+      error,
+      model,
+      conversationId,
+      send,
+      regenerate,
+      abort,
+      newChat,
+      loadConversation,
+    ],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
 function humanizeError(status: number, text: string): string {
-  let detail = '';
+  let detail = "";
   try {
-    const parsed = JSON.parse(text) as { error?: { message?: string } | string; message?: string };
+    const parsed = JSON.parse(text) as {
+      error?: { message?: string } | string;
+      message?: string;
+    };
     detail =
-      (typeof parsed.error === 'string' ? parsed.error : parsed.error?.message) ||
+      (typeof parsed.error === "string"
+        ? parsed.error
+        : parsed.error?.message) ||
       parsed.message ||
-      '';
+      "";
   } catch {
     detail = text.slice(0, 200);
   }
-  if (status === 401) return 'Your session or proxy configuration is invalid. Check Settings.';
-  if (status === 429) return 'Rate limited by the provider. Try again shortly.';
-  if (status === 502) return detail || 'Could not reach the upstream provider.';
+  if (status === 401)
+    return "Your session or proxy configuration is invalid. Check Settings.";
+  if (status === 429) return "Rate limited by the provider. Try again shortly.";
+  if (status === 502) return detail || "Could not reach the upstream provider.";
   return detail || `Request failed (${status}).`;
 }
 
 export function useChat(): UseChatValue {
   const ctx = useContext(ChatContext);
-  if (!ctx) throw new Error('useChat must be used within a ChatProvider');
+  if (!ctx) throw new Error("useChat must be used within a ChatProvider");
   return ctx;
 }

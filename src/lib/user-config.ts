@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@/lib/auth';
+import { prisma } from "@/lib/prisma";
+import { getAuth } from "@/lib/auth";
 
 export interface ResolvedConfig {
   userId: string;
@@ -12,7 +12,9 @@ export interface ResolvedConfig {
 export async function getResolvedConfig(): Promise<ResolvedConfig | null> {
   const claims = await getAuth();
   if (!claims) return null;
-  const config = await prisma.config.findUnique({ where: { userId: claims.sub } });
+  const config = await prisma.config.findUnique({
+    where: { userId: claims.sub },
+  });
   if (!config) return null;
   return {
     userId: claims.sub,
@@ -23,11 +25,14 @@ export async function getResolvedConfig(): Promise<ResolvedConfig | null> {
 }
 
 export function normalizeEndpoint(endpoint: string): string {
-  return endpoint.trim().replace(/\/+$/, '');
+  return endpoint.trim().replace(/\/+$/, "");
 }
 
 /** Probes <endpoint>/models with the key to confirm the credentials work. */
-export async function probeProxy(endpoint: string, apiKey: string): Promise<{ ok: boolean; status: number; message?: string }> {
+export async function probeProxy(
+  endpoint: string,
+  apiKey: string,
+): Promise<{ ok: boolean; status: number; message?: string }> {
   const base = normalizeEndpoint(endpoint);
   try {
     const res = await fetch(`${base}/models`, {
@@ -35,12 +40,17 @@ export async function probeProxy(endpoint: string, apiKey: string): Promise<{ ok
       signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) return { ok: true, status: res.status };
-    return { ok: false, status: res.status, message: `Endpoint responded with ${res.status}.` };
+    return {
+      ok: false,
+      status: res.status,
+      message: `Endpoint responded with ${res.status}.`,
+    };
   } catch (err) {
     return {
       ok: false,
       status: 0,
-      message: err instanceof Error ? err.message : 'Could not reach the endpoint.',
+      message:
+        err instanceof Error ? err.message : "Could not reach the endpoint.",
     };
   }
 }

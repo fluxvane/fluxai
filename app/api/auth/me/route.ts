@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getAuth } from "@/lib/auth";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function GET() {
   const claims = await getAuth();
@@ -28,7 +28,10 @@ export async function GET() {
     user: { id: user.id, email: user.email, name: user.name },
     hasConfig: !!user.config,
     config: user.config
-      ? { endpoint: user.config.endpoint, defaultModel: user.config.defaultModel }
+      ? {
+          endpoint: user.config.endpoint,
+          defaultModel: user.config.defaultModel,
+        }
       : null,
   });
 }

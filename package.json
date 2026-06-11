@@ -12,6 +12,8 @@
     "db:studio": "prisma studio",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --ignore-path .prettierignore",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -62,6 +64,7 @@
     "eslint-config-next": "^15.3.5",
     "eslint-plugin-react-hooks": "^5.0.0",
     "jsdom": "^26.1.0",
+    "prettier": "^3.8.4",
     "prisma": "^7.8.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.1"

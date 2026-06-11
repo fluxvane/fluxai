@@ -1,4 +1,4 @@
-export type ChatRole = 'system' | 'user' | 'assistant';
+export type ChatRole = "system" | "user" | "assistant";
 
 export interface ChatMessage {
   id: string;

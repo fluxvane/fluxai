@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
-import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
-import bcrypt from 'bcryptjs';
+import { cookies } from "next/headers";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import bcrypt from "bcryptjs";
 
-export const AUTH_COOKIE = 'flux_ai_token';
+export const AUTH_COOKIE = "flux_ai_token";
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export interface AuthClaims extends JWTPayload {
@@ -13,7 +13,7 @@ export interface AuthClaims extends JWTPayload {
 
 function secret(): Uint8Array {
   const value = process.env.JWT_SECRET;
-  if (!value) throw new Error('JWT_SECRET is not set');
+  if (!value) throw new Error("JWT_SECRET is not set");
   return new TextEncoder().encode(value);
 }
 
@@ -21,13 +21,20 @@ export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10);
 }
 
-export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
+export async function verifyPassword(
+  plain: string,
+  hash: string,
+): Promise<boolean> {
   return bcrypt.compare(plain, hash);
 }
 
-export async function signToken(claims: { sub: string; email: string; name: string }): Promise<string> {
+export async function signToken(claims: {
+  sub: string;
+  email: string;
+  name: string;
+}): Promise<string> {
   return new SignJWT({ email: claims.email, name: claims.name })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: "HS256" })
     .setSubject(claims.sub)
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
@@ -46,10 +53,10 @@ export async function verifyToken(token: string): Promise<AuthClaims | null> {
 
 const cookieOptions = {
   httpOnly: true as const,
-  sameSite: 'lax' as const,
-  path: '/',
+  sameSite: "lax" as const,
+  path: "/",
   maxAge: TOKEN_TTL_SECONDS,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.NODE_ENV === "production",
 };
 
 export async function setAuthCookie(token: string): Promise<void> {

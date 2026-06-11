@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 
 export interface ModelItem {
   id: string;
@@ -9,7 +9,7 @@ export interface ModelItem {
 }
 
 async function fetchModels(): Promise<ModelItem[]> {
-  const res = await fetch('/api/proxy/models', { cache: 'no-store' });
+  const res = await fetch("/api/proxy/models", { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load models (${res.status})`);
   const data = (await res.json()) as { data?: ModelItem[] };
   return data.data ?? [];
@@ -17,7 +17,7 @@ async function fetchModels(): Promise<ModelItem[]> {
 
 export function useModels(enabled = true) {
   const query = useQuery({
-    queryKey: ['models'],
+    queryKey: ["models"],
     queryFn: fetchModels,
     enabled,
     staleTime: 5 * 60_000,
