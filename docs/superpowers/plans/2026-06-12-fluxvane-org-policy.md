@@ -186,12 +186,20 @@ Single source of truth for reading YAML in apply scripts. Exposes one function:
 # Read a value from a YAML file and print it as JSON.
 # Usage: yaml_get <file> <dotted.path>
 # Example: yaml_get org/settings.yaml settings.members_can_create_repositories
+# Exit 1 with stderr message if the key is missing or null.
 set -euo pipefail
 
 yaml_get() {
   local file="$1"
   local path="$2"
-  yq ".\"$path\"" "$file"
+  local value
+  # yq v4: unquoted ".$path" traverses the dotted path; quoted treats it as a literal key.
+  value="$(yq -r ".$path" "$file" 2>/dev/null || true)"
+  if [[ "$value" == "null" || -z "$value" ]]; then
+    echo "yaml_get: missing key '$path' in $file" >&2
+    return 1
+  fi
+  printf '%s' "$value"
 }
 
 # Build a JSON object from a dotted-path prefix.
@@ -201,7 +209,7 @@ yaml_get() {
 yaml_object() {
   local file="$1"
   local prefix="$2"
-  yq ".\"$prefix\"" -o=json "$file"
+  yq ".$prefix" -o=json "$file"
 }
 ```
 
@@ -226,28 +234,36 @@ api_call() {
   shift
 
   local out
-  out="$(mktemp)"
+  out="$(mktemp -t api.XXXXXX)"
+  # Ensure temp file is cleaned up on any exit path.
+  trap "rm -f '$out'" RETURN
+
   local http_code
-  http_code="$(gh api -X "$method" "$endpoint" -o "$out" -w "%{http_code}" "$@")"
+  http_code="$(gh api -X "$method" "$endpoint" -o "$out" -w "%{http_code}" "$@")" || {
+    rm -f "$out"
+    return 1
+  }
 
   if [[ "$http_code" =~ ^2 ]]; then
     cat "$out"
-    rm -f "$out"
     return 0
   fi
 
   local body
   body="$(cat "$out")"
   rm -f "$out"
+  trap - RETURN
 
-  # Detect paid-plan 422 and skip with warning
-  if [[ "$http_code" == "422" ]] && echo "$body" | jq -e '.message | test("requires paid|paid plan"; "i")' >/dev/null 2>&1; then
-    echo "  [skip] $method $endpoint — requires paid plan" >&2
+  # Detect paid-plan 422 and skip with warning.
+  # GitHub phrasing includes: "requires paid plan", "requires a paid plan",
+  # "paid GitHub Team", "requires GitHub Team" (no "paid" word).
+  if [[ "$http_code" == "422" ]] && printf '%s' "$body" | grep -qiE 'requires (paid|github team|enterprise)|paid plan'; then
+    printf '  [skip] %s %s — requires paid plan\n' "$method" "$endpoint" >&2
     return 0
   fi
 
-  echo "  [fail] $method $endpoint → HTTP $http_code" >&2
-  echo "$body" | jq . >&2 || echo "$body" >&2
+  printf '  [fail] %s %s → HTTP %s\n' "$method" "$endpoint" "$http_code" >&2
+  if printf '%s' "$body" | jq . >&2; then :; else printf '%s\n' "$body" >&2; fi
   return 1
 }
 ```
