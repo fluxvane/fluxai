@@ -18,7 +18,7 @@ const QUICK_MODELS = ['chat', 'speed', 'coding', 'hermes', 'review'];
 export default function ConfigPage() {
   const router = useRouter();
   const { user, isLoaded, config, saveConfig, logout } = useAuth();
-  const [endpoint, setEndpoint] = useState('https://proxy.fluxvane.com/v1');
+  const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [defaultModel, setDefaultModel] = useState('chat');
   const [showKey, setShowKey] = useState(false);
@@ -107,7 +107,7 @@ export default function ConfigPage() {
             <Stack spacing={2}>
               <TextField
                 label="AI Endpoint"
-                placeholder="https://proxy.fluxvane.com/v1"
+                placeholder="https://your-proxy.example.com/v1"
                 value={endpoint}
                 onChange={(e) => setEndpoint(e.target.value)}
                 fullWidth required autoComplete="off"
