@@ -264,7 +264,7 @@ updates:
 - Push-time secret blocking: not available. Mitigated by gitleaks preflight + branch protection.
 - Org-wide 2FA enforcement via API: not available. Mitigated by requiring `thontm` account 2FA manually (out of scope of this script).
 - Code-scanning (CodeQL) default setup: not available. Optional manual setup later if upgraded.
-- Admin bypass on branch protection: GitHub allows it; `enforce_admins: true` is best effort. `thontm` retains admin override if explicitly needed.
+- Admin bypass on branch protection: `enforce_admins: true` is set on both branches, which causes the GitHub API to reject direct pushes and force-pushes from any user, including repo admins. However, repo admins can still _disable_ branch protection via the GitHub UI or API at any time — that is a separate action from bypassing it. The protection itself is enforced as configured.
 
 ## Rollback
 
@@ -272,6 +272,15 @@ updates:
 - To roll back a change: edit yaml, commit, re-run apply.
 - To remove branch protection: set branch entry to disabled, re-run apply.
 - No state file to manage (not Terraform). Drift is detected, not hidden.
+
+## Out of scope
+
+## Bootstrapping notes
+
+- `fluxvane/org-policy` must be created as a **private** repo. Only `thontm` should have write access. No outside collaborators.
+- The repo itself should follow the same `CODEOWNERS` pattern (`* @thontm`) and require PR + 1 approval for any change to policy scripts.
+- `GH_TOKEN` for CI: a fine-scoped PAT with `repo` + `read:org` for verify jobs, and a separate `admin:org` PAT (stored as a secret) for apply jobs run manually or via a protected workflow.
+- The `gitleaks` binary must be available on the path where `preflight.sh` runs (local dev + CI runner). Install via `brew install gitleaks` on macOS or the official action in CI.
 
 ## Out of scope
 
