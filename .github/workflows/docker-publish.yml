@@ -34,15 +34,20 @@ jobs:
         id: meta
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "env=prod" >> "$GITHUB_OUTPUT"
+            env="prod"
           else
-            echo "env=dev" >> "$GITHUB_OUTPUT"
+            env="dev"
           fi
-          echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/fluxvane/fluxai" >> "$GITHUB_OUTPUT"
-          echo "tag=${env}-${short_sha}" >> "$GITHUB_OUTPUT"
+          short_sha="${GITHUB_SHA:0:7}"
+          image="ghcr.io/fluxvane/fluxai"
+          tag="${env}-${short_sha}"
+          # Persist as step outputs for subsequent steps.
+          echo "env=${env}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "::group::Computed metadata"
-          echo "image=${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
+          echo "image=${image}:${tag}"
           echo "::endgroup::"
 
       - name: Build and push
