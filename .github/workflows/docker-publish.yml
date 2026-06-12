@@ -38,7 +38,7 @@ jobs:
           else
             echo "env=dev" >> "$GITHUB_OUTPUT"
           fi
-          echo "short_sha=${${{ github.sha }}::7}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/fluxvane/fluxai" >> "$GITHUB_OUTPUT"
           echo "tag=${env}-${short_sha}" >> "$GITHUB_OUTPUT"
           echo "::group::Computed metadata"
@@ -77,7 +77,14 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             /orgs/fluxvane/packages/container/fluxai \
             -f visibility=public \
-            --include -o /dev/null -w "%{http_code}" 2>&1)
+            --include -o /dev/null -w "%{http_code}")
+          gh_status=$?
+          set -e
+          # If gh itself failed (auth, network), the captured HTTP may be empty.
+          if [[ $gh_status -ne 0 && -z "$HTTP" ]]; then
+            echo "[fail] gh api exited $gh_status"
+            exit 1
+          fi
           case "$HTTP" in
             2*) echo "[ok] package set to public" ;;
             404) echo "[skip] package does not exist yet (will retry next push)" ;;
