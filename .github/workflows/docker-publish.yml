@@ -1,0 +1,98 @@
+name: docker-publish
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive env + tag
+        id: meta
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            env="prod"
+          else
+            env="dev"
+          fi
+          short_sha="${GITHUB_SHA:0:7}"
+          image="ghcr.io/fluxvane/fluxai"
+          tag="${env}-${short_sha}"
+          # Persist as step outputs for subsequent steps.
+          echo "env=${env}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "::group::Computed metadata"
+          echo "image=${image}:${tag}"
+          echo "::endgroup::"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.title=flux-ai
+            org.opencontainers.image.description=Fluxvane FluxAI dashboard
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make package public
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Tolerate 404 (package not yet created on first push) and 422
+          # (already public, or other constraint). The lib's paid-plan
+          # grep doesn't match these — inline toleration here.
+          set +e
+          HTTP=$(gh api \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            /orgs/fluxvane/packages/container/fluxai \
+            -f visibility=public \
+            --include -o /dev/null -w "%{http_code}")
+          gh_status=$?
+          set -e
+          # If gh itself failed (auth, network), the captured HTTP may be empty.
+          if [[ $gh_status -ne 0 && -z "$HTTP" ]]; then
+            echo "[fail] gh api exited $gh_status"
+            exit 1
+          fi
+          case "$HTTP" in
+            2*) echo "[ok] package set to public" ;;
+            404) echo "[skip] package does not exist yet (will retry next push)" ;;
+            422) echo "[skip] package visibility already public or other 422" ;;
+            *) echo "[fail] unexpected HTTP $HTTP"; exit 1 ;;
+          esac
