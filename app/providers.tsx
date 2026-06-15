@@ -38,9 +38,24 @@ const theme = createTheme({
   typography: {
     fontFamily:
       'var(--font-inter), "Inter", "SF Pro Display", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h3: { fontWeight: 700, letterSpacing: "-0.01em" },
+    h1: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.02em",
+    },
+    h2: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.02em",
+    },
+    h3: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.01em",
+    },
     h4: { fontWeight: 700, letterSpacing: "-0.01em" },
     h5: { fontWeight: 600, letterSpacing: "-0.01em" },
     h6: { fontWeight: 600 },
@@ -50,6 +65,15 @@ const theme = createTheme({
     borderRadius: 16,
   },
   components: {
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          background: "var(--surface-solid)",
+          border: "1px solid var(--border)",
+          backdropFilter: "blur(20px)",
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         body: {
