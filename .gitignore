@@ -52,3 +52,6 @@ playwright/.cache/
 # Local verification screenshots (dev only)
 live-login.png
 login-*.png
+
+# Superpowers brainstorm/visual companion scratch
+.superpowers/
