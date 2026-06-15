@@ -38,6 +38,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import SettingsDialog from "./SettingsDialog";
+import AuroraBackground from "./aurora/AuroraBackground";
+import DisplayHeading from "./aurora/DisplayHeading";
 
 const NAV_ITEMS = [
   { label: "Chat", href: "/chat", icon: <ChatOutlined /> },
@@ -106,14 +108,22 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "transparent",
+      }}
+    >
+      <AuroraBackground />
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: "rgba(9, 9, 11, 0.6)",
+          bgcolor: "var(--surface)",
           backdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(161, 161, 170, 0.08)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <Toolbar sx={{ gap: 1.5 }}>
@@ -146,16 +156,14 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
             >
               <AutoAwesome sx={{ color: "white", fontSize: 18 }} />
             </Box>
-            <Typography
-              variant="h6"
-              fontWeight={700}
+            <DisplayHeading
               sx={{
-                letterSpacing: "-0.01em",
+                fontSize: 20,
                 display: { xs: "none", sm: "block" },
               }}
             >
               Flux AI
-            </Typography>
+            </DisplayHeading>
           </Stack>
 
           <Box sx={{ flex: 1 }} />
@@ -267,9 +275,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         PaperProps={{
           sx: {
             width: 290,
-            background: "rgba(24,24,27,0.94)",
+            background: "var(--surface-solid)",
             backdropFilter: "blur(20px)",
-            borderRight: "1px solid rgba(161,161,170,0.08)",
+            borderRight: "1px solid var(--border)",
           },
         }}
       >
@@ -296,7 +304,10 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   sx={{
                     borderRadius: 2,
                     mb: 0.5,
-                    "&.Mui-selected": { background: "rgba(139,92,246,0.12)" },
+                    transition: "background var(--dur-fast) var(--ease-out)",
+                    "&.Mui-selected": {
+                      background: "rgba(139,92,246,0.12)",
+                    },
                   }}
                 >
                   <ListItemIcon
