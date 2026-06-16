@@ -1,4 +1,33 @@
 /* =========================================================
+   Flux AI — Aurora design tokens (shared: app + login)
+   ========================================================= */
+:root {
+  --bg: #09090b;
+  --surface: rgba(24, 24, 27, 0.55);
+  --surface-solid: #18181b;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #fafafa;
+  --text-soft: #a1a1aa;
+  --text-mute: #71717a;
+  --accent: #a78bfa;
+  --accent-2: #8b5cf6;
+  --accent-pink: #ec4899;
+  --gradient-brand: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  --radius-card: 18px;
+  --radius-panel: 14px;
+  --radius-input: 12px;
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 30px 60px -20px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --glow-accent: 0 4px 16px rgba(139, 92, 246, 0.45);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 600ms;
+}
+
+/* =========================================================
    Flux AI — Auth (login) page styles
    Aesthetic: dark, editorial, two-column, soft radial glows
    ========================================================= */
@@ -537,5 +566,80 @@
   }
   .login-sub {
     font-size: 14.5px;
+  }
+}
+
+/* ---- Aurora app background (shared canvas behind the app shell) ---- */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--bg);
+}
+.aurora-bg__mesh {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.aurora-bg__mesh--violet {
+  width: 720px;
+  height: 720px;
+  top: -260px;
+  left: -180px;
+  background: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.5) 0%,
+    rgba(139, 92, 246, 0) 65%
+  );
+  animation: aurora-drift 24s ease-in-out infinite;
+}
+.aurora-bg__mesh--pink {
+  width: 640px;
+  height: 640px;
+  bottom: -240px;
+  right: -200px;
+  background: radial-gradient(
+    circle,
+    rgba(236, 72, 153, 0.3) 0%,
+    rgba(236, 72, 153, 0) 65%
+  );
+  animation: aurora-drift 28s ease-in-out infinite reverse;
+}
+.aurora-bg__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(40px, -30px, 0) scale(1.06);
+  }
+}
+.aurora-bg[data-static="true"] .aurora-bg__mesh {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg__mesh {
+    animation: none !important;
+  }
+}
+
+/* Loading shimmer sweep for image-generation placeholders (referenced by sx). */
+@keyframes aurora-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }

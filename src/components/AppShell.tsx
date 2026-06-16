@@ -38,6 +38,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import SettingsDialog from "./SettingsDialog";
+import AuroraBackground from "./aurora/AuroraBackground";
+import DisplayHeading from "./aurora/DisplayHeading";
 
 const NAV_ITEMS = [
   { label: "Chat", href: "/chat", icon: <ChatOutlined /> },
@@ -106,14 +108,23 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        height: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <AuroraBackground />
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: "rgba(9, 9, 11, 0.6)",
+          bgcolor: "var(--surface)",
           backdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(161, 161, 170, 0.08)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <Toolbar sx={{ gap: 1.5 }}>
@@ -146,16 +157,14 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
             >
               <AutoAwesome sx={{ color: "white", fontSize: 18 }} />
             </Box>
-            <Typography
-              variant="h6"
-              fontWeight={700}
+            <DisplayHeading
               sx={{
-                letterSpacing: "-0.01em",
+                fontSize: 20,
                 display: { xs: "none", sm: "block" },
               }}
             >
               Flux AI
-            </Typography>
+            </DisplayHeading>
           </Stack>
 
           <Box sx={{ flex: 1 }} />
@@ -267,9 +276,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         PaperProps={{
           sx: {
             width: 290,
-            background: "rgba(24,24,27,0.94)",
+            background: "var(--surface-solid)",
             backdropFilter: "blur(20px)",
-            borderRight: "1px solid rgba(161,161,170,0.08)",
+            borderRight: "1px solid var(--border)",
           },
         }}
       >
@@ -296,7 +305,10 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   sx={{
                     borderRadius: 2,
                     mb: 0.5,
-                    "&.Mui-selected": { background: "rgba(139,92,246,0.12)" },
+                    transition: "background var(--dur-fast) var(--ease-out)",
+                    "&.Mui-selected": {
+                      background: "rgba(139,92,246,0.12)",
+                    },
                   }}
                 >
                   <ListItemIcon
@@ -322,7 +334,18 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         </Box>
       </Drawer>
 
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          // Pages without their own scroller (config, analytics, generate-image)
+          // scroll here. Chat fills this exactly (its message list scrolls
+          // internally + pinned composer), so this never double-scrolls.
+          overflowY: "auto",
+        }}
+      >
         {children}
       </Box>
 

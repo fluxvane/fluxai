@@ -20,10 +20,17 @@ import {
   ImageOutlined,
   ErrorOutline,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import ModelPicker from "@/components/ModelPicker";
+import GlassPanel from "@/components/aurora/GlassPanel";
+import DisplayHeading from "@/components/aurora/DisplayHeading";
+import {
+  fadeUp,
+  staggerContainer,
+  respectMotion,
+} from "@/components/aurora/motion";
 
 interface GeneratedImage {
   id: string;
@@ -50,6 +57,7 @@ export default function GenerateImagePage() {
   const [size, setSize] = useState("1024x1024");
   const [n, setN] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const reduce = useReducedMotion();
 
   const { data: gallery = [] } = useQuery({
     queryKey: ["images"],
@@ -106,29 +114,14 @@ export default function GenerateImagePage() {
           >
             Generate
           </Typography>
-          <Typography
-            variant="h3"
-            fontWeight={700}
-            sx={{ letterSpacing: "-0.02em" }}
-          >
-            Image studio
-          </Typography>
+          <DisplayHeading variant="h3">Image studio</DisplayHeading>
           <Typography variant="body2" color="text.secondary">
             Describe what you want and pick a model. Images are saved to your
             gallery.
           </Typography>
         </Stack>
 
-        <Box
-          sx={{
-            p: 2.5,
-            borderRadius: 3,
-            mb: 4,
-            border: "1px solid rgba(161,161,170,0.12)",
-            background: "rgba(24,24,27,0.6)",
-            backdropFilter: "blur(20px)",
-          }}
-        >
+        <GlassPanel sx={{ p: 2.5, mb: 4 }}>
           <TextField
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -215,7 +208,7 @@ export default function GenerateImagePage() {
               {error}
             </Alert>
           )}
-        </Box>
+        </GlassPanel>
 
         {mutation.isPending && (
           <Box
@@ -227,29 +220,33 @@ export default function GenerateImagePage() {
             }}
           >
             {Array.from({ length: n }).map((_, i) => (
-              <Box
+              <GlassPanel
                 key={i}
                 sx={{
                   aspectRatio: "1",
-                  borderRadius: 2.5,
-                  border: "1px solid rgba(161,161,170,0.1)",
                   background:
-                    "linear-gradient(90deg, rgba(161,161,170,0.05) 25%, rgba(161,161,170,0.12) 50%, rgba(161,161,170,0.05) 75%)",
+                    "linear-gradient(100deg, rgba(255,255,255,0.02) 30%, rgba(139,92,246,0.12) 50%, rgba(255,255,255,0.02) 70%)",
                   backgroundSize: "200% 100%",
-                  animation: "flux-shimmer 1.4s linear infinite",
+                  animation: "aurora-shimmer 1.6s linear infinite",
                 }}
               />
             ))}
           </Box>
         )}
 
-        <Gallery images={gallery} />
+        <Gallery images={gallery} reduce={!!reduce} />
       </Box>
     </AppShell>
   );
 }
 
-function Gallery({ images }: { images: GeneratedImage[] }) {
+function Gallery({
+  images,
+  reduce,
+}: {
+  images: GeneratedImage[];
+  reduce: boolean;
+}) {
   if (images.length === 0) {
     return (
       <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
@@ -266,15 +263,14 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
       <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
         Gallery
       </Typography>
-      <Box
-        sx={{
+      <motion.div
+        variants={respectMotion(staggerContainer, reduce)}
+        initial="hidden"
+        animate="show"
+        style={{
           display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr 1fr",
-            md: "repeat(3, 1fr)",
-            lg: "repeat(4, 1fr)",
-          },
-          gap: 2,
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "16px",
         }}
       >
         <AnimatePresence initial={false}>
@@ -282,18 +278,21 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
             <motion.div
               key={img.id}
               layout
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
+              variants={respectMotion(fadeUp, reduce)}
+              initial="hidden"
+              animate="show"
             >
-              <Box
+              <GlassPanel
+                hover
                 sx={{
-                  position: "relative",
-                  borderRadius: 2.5,
                   overflow: "hidden",
-                  border: "1px solid rgba(161,161,170,0.12)",
-                  background: "rgba(24,24,27,0.6)",
+                  p: 0,
+                  position: "relative",
                   "&:hover .flux-overlay": { opacity: 1 },
+                  "& img": {
+                    transition: "transform var(--dur-base) var(--ease-out)",
+                  },
+                  "&:hover img": { transform: "scale(1.03)" },
                 }}
               >
                 {img.src ? (
@@ -389,11 +388,11 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                     }}
                   />
                 </Box>
-              </Box>
+              </GlassPanel>
             </motion.div>
           ))}
         </AnimatePresence>
-      </Box>
+      </motion.div>
     </>
   );
 }

@@ -38,9 +38,24 @@ const theme = createTheme({
   typography: {
     fontFamily:
       'var(--font-inter), "Inter", "SF Pro Display", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h3: { fontWeight: 700, letterSpacing: "-0.01em" },
+    h1: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.02em",
+    },
+    h2: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.02em",
+    },
+    h3: {
+      fontFamily: "var(--font-fraunces), Georgia, serif",
+      fontStyle: "italic",
+      fontWeight: 600,
+      letterSpacing: "-0.01em",
+    },
     h4: { fontWeight: 700, letterSpacing: "-0.01em" },
     h5: { fontWeight: 600, letterSpacing: "-0.01em" },
     h6: { fontWeight: 600 },
@@ -50,6 +65,15 @@ const theme = createTheme({
     borderRadius: 16,
   },
   components: {
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          background: "var(--surface-solid)",
+          border: "1px solid var(--border)",
+          backdropFilter: "blur(20px)",
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         body: {
@@ -82,6 +106,21 @@ const theme = createTheme({
         "@keyframes flux-fade-up": {
           from: { opacity: 0, transform: "translateY(10px)" },
           to: { opacity: 1, transform: "translateY(0)" },
+        },
+        "@keyframes flux-typing": {
+          "0%, 80%, 100%": { transform: "scale(0.7)", opacity: 0.4 },
+          "40%": { transform: "scale(1)", opacity: 1 },
+        },
+        "@keyframes flux-think-glow": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(139,92,246,0)" },
+          "50%": { boxShadow: "0 0 22px -4px rgba(139,92,246,0.45)" },
+        },
+        "@media (prefers-reduced-motion: reduce)": {
+          "*": {
+            animationDuration: "0.001ms !important",
+            animationIterationCount: "1 !important",
+            transitionDuration: "0.001ms !important",
+          },
         },
         // Tighten markdown rendering inside chat bubbles.
         ".flux-markdown p": { margin: "0 0 0.75em" },

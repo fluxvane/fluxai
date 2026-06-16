@@ -66,20 +66,31 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // Whether the user is pinned to the bottom. While true, the view follows the
+  // streaming response; once the user scrolls up to re-read, following stops so
+  // we never yank them away mid-read.
+  const atBottomRef = useRef(true);
 
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  // Follow the answer as it streams. Instant (not smooth) so it keeps pace with
+  // rapid token updates — smooth-scroll animations queue up and stall. Runs on
+  // every message mutation (each token replaces the messages array reference).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    const el = scrollRef.current;
+    if (!el || !atBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [chat.messages]);
 
   const handleSend = async () => {
     const content = input.trim();
     if (!content || chat.isStreaming) return;
     setInput("");
+    atBottomRef.current = true; // sending always re-pins to the bottom
     await chat.send(content);
   };
 
@@ -99,8 +110,10 @@ export default function ChatPage() {
     >
       <Box
         ref={scrollRef}
+        onScroll={handleScroll}
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
@@ -131,7 +144,6 @@ export default function ChatPage() {
                   <MessageBubble
                     key={message.id}
                     message={message}
-                    userName={user?.name ?? "You"}
                     isLast={isLast}
                     isStreaming={
                       chat.isStreaming && isLast && message.role === "assistant"
@@ -467,13 +479,11 @@ function EmptyHero({
 
 function MessageBubble({
   message,
-  userName,
   isLast,
   isStreaming,
   onRegenerate,
 }: {
   message: ChatMessage;
-  userName: string;
   isLast: boolean;
   isStreaming: boolean;
   onRegenerate: () => void;
@@ -490,6 +500,37 @@ function MessageBubble({
   // "Thinking" = streaming this assistant message but no answer text yet.
   const thinking = isStreaming && !message.content;
 
+  // User messages: right-aligned gradient glass bubble, no avatar/header.
+  if (isUser) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        style={{ display: "flex", justifyContent: "flex-end" }}
+      >
+        <Box
+          sx={{
+            maxWidth: "80%",
+            px: 1.9,
+            py: 1.4,
+            borderRadius: "16px 16px 4px 16px",
+            background: "var(--gradient-brand)",
+            color: "#fff",
+            boxShadow: "0 6px 18px rgba(124,58,237,0.30)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 14.5,
+            lineHeight: 1.6,
+          }}
+        >
+          {message.content}
+        </Box>
+      </motion.div>
+    );
+  }
+
+  // Assistant messages: left-aligned editorial text with avatar + actions.
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -505,17 +546,11 @@ function MessageBubble({
           fontWeight: 700,
           flexShrink: 0,
           mt: 0.5,
-          background: isUser
-            ? "rgba(161,161,170,0.12)"
-            : "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
-          color: isUser ? "text.primary" : "white",
+          background: "var(--gradient-brand)",
+          color: "white",
         }}
       >
-        {isUser ? (
-          userName.trim().charAt(0).toUpperCase() || "U"
-        ) : (
-          <AutoAwesome sx={{ fontSize: 16 }} />
-        )}
+        <AutoAwesome sx={{ fontSize: 16 }} />
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -531,9 +566,9 @@ function MessageBubble({
             color="text.primary"
             sx={{ fontSize: 13 }}
           >
-            {isUser ? userName : "Flux AI"}
+            Flux AI
           </Typography>
-          {!isUser && message.model && (
+          {message.model && (
             <Typography
               variant="caption"
               color="text.secondary"
@@ -544,42 +579,21 @@ function MessageBubble({
           )}
         </Stack>
 
-        {!isUser && (
-          <ThinkingPanel
-            reasoning={message.reasoning ?? ""}
-            isThinking={thinking}
-          />
-        )}
+        <ThinkingPanel
+          reasoning={message.reasoning ?? ""}
+          isThinking={thinking}
+        />
 
-        <Box
-          sx={{
-            p: isUser ? 1.75 : 0,
-            borderRadius: 2,
-            background: isUser ? "rgba(139,92,246,0.10)" : "transparent",
-            border: isUser ? "1px solid rgba(139,92,246,0.22)" : "none",
-          }}
-        >
-          {isUser ? (
-            <Typography
-              component="div"
-              sx={{
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 14.5,
-                lineHeight: 1.65,
-              }}
-            >
-              {message.content}
-            </Typography>
-          ) : message.content ? (
-            <Box sx={{ display: "flex", alignItems: "flex-start" }}>
-              <Markdown>{message.content}</Markdown>
-              {isStreaming && <Cursor />}
-            </Box>
-          ) : null}
-        </Box>
+        {message.content ? (
+          <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+            <Markdown>{message.content}</Markdown>
+            {isStreaming && <Cursor />}
+          </Box>
+        ) : isStreaming && !message.reasoning ? (
+          <TypingDots />
+        ) : null}
 
-        {!isUser && !isStreaming && message.content && (
+        {!isStreaming && message.content && (
           <Stack
             direction="row"
             spacing={0.5}
@@ -637,5 +651,31 @@ function Cursor() {
         animation: "flux-blink 1.05s steps(2) infinite",
       }}
     />
+  );
+}
+
+// Three bouncing gradient dots shown while the assistant is composing its
+// first token (the "responding" beat before text appears).
+function TypingDots() {
+  return (
+    <Box
+      sx={{ display: "flex", gap: 0.7, alignItems: "center", py: 0.75 }}
+      aria-label="Flux AI is responding"
+    >
+      {[0, 1, 2].map((i) => (
+        <Box
+          key={i}
+          component="span"
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "var(--gradient-brand)",
+            animation: "flux-typing 1.2s ease-in-out infinite",
+            animationDelay: `${i * 0.18}s`,
+          }}
+        />
+      ))}
+    </Box>
   );
 }
