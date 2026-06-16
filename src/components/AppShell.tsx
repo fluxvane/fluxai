@@ -110,10 +110,11 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        height: "100dvh",
         display: "flex",
         flexDirection: "column",
         background: "transparent",
+        overflow: "hidden",
       }}
     >
       <AuroraBackground />
@@ -333,7 +334,14 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         </Box>
       </Drawer>
 
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {children}
       </Box>
 
