@@ -340,6 +340,10 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           minHeight: 0,
           display: "flex",
           flexDirection: "column",
+          // Pages without their own scroller (config, analytics, generate-image)
+          // scroll here. Chat fills this exactly (its message list scrolls
+          // internally + pinned composer), so this never double-scrolls.
+          overflowY: "auto",
         }}
       >
         {children}
