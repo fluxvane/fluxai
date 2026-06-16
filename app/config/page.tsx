@@ -25,14 +25,22 @@ import {
   CheckCircleOutlineRounded,
   LogoutOutlined,
 } from "@mui/icons-material";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import GlassPanel from "@/components/aurora/GlassPanel";
+import DisplayHeading from "@/components/aurora/DisplayHeading";
+import {
+  fadeUp,
+  staggerContainer,
+  respectMotion,
+} from "@/components/aurora/motion";
 
 const QUICK_MODELS = ["chat", "speed", "coding", "hermes", "review"];
 
 export default function ConfigPage() {
   const router = useRouter();
   const { user, isLoaded, config, saveConfig, logout } = useAuth();
+  const reduce = useReducedMotion();
   const [endpoint, setEndpoint] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [defaultModel, setDefaultModel] = useState("chat");
@@ -84,9 +92,9 @@ export default function ConfigPage() {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        variants={respectMotion(fadeUp, !!reduce)}
+        initial="hidden"
+        animate="show"
         style={{ width: "100%", maxWidth: 480 }}
       >
         <Stack
@@ -109,13 +117,9 @@ export default function ConfigPage() {
             <TuneOutlined sx={{ color: "white", fontSize: 26 }} />
           </Box>
           <Box>
-            <Typography
-              variant="h4"
-              fontWeight={700}
-              sx={{ letterSpacing: "-0.02em", mb: 0.5 }}
-            >
+            <DisplayHeading variant="h4" sx={{ mb: 0.5 }}>
               Connect your proxy
-            </Typography>
+            </DisplayHeading>
             <Typography
               variant="body2"
               color="text.secondary"
@@ -127,16 +131,7 @@ export default function ConfigPage() {
           </Box>
         </Stack>
 
-        <Box
-          sx={{
-            p: 3,
-            borderRadius: 3,
-            border: "1px solid rgba(161, 161, 170, 0.12)",
-            background: "rgba(24, 24, 27, 0.65)",
-            backdropFilter: "blur(20px)",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
-          }}
-        >
+        <GlassPanel sx={{ p: 4, maxWidth: 520, mx: "auto" }}>
           {error && (
             <Alert
               severity="error"
@@ -147,127 +142,141 @@ export default function ConfigPage() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <Stack spacing={2}>
-              <TextField
-                label="AI Endpoint"
-                placeholder="https://your-proxy.example.com/v1"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                fullWidth
-                required
-                autoComplete="off"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <HubOutlined
-                        sx={{ color: "text.secondary", fontSize: 18 }}
-                      />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+            <motion.div
+              variants={respectMotion(staggerContainer, !!reduce)}
+              initial="hidden"
+              animate="show"
+            >
+              <Stack spacing={2}>
+                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                  <TextField
+                    label="AI Endpoint"
+                    placeholder="https://your-proxy.example.com/v1"
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    fullWidth
+                    required
+                    autoComplete="off"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <HubOutlined
+                            sx={{ color: "text.secondary", fontSize: 18 }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </motion.div>
 
-              <TextField
-                label="API Key"
-                placeholder="sk-…"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                fullWidth
-                required
-                autoComplete="off"
-                type={showKey ? "text" : "password"}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <KeyOutlined
-                        sx={{ color: "text.secondary", fontSize: 18 }}
-                      />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowKey((s) => !s)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showKey ? (
-                          <VisibilityOff sx={{ fontSize: 18 }} />
-                        ) : (
-                          <Visibility sx={{ fontSize: 18 }} />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                  <TextField
+                    label="API Key"
+                    placeholder="sk-…"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    fullWidth
+                    required
+                    autoComplete="off"
+                    type={showKey ? "text" : "password"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <KeyOutlined
+                            sx={{ color: "text.secondary", fontSize: 18 }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowKey((s) => !s)}
+                            edge="end"
+                            size="small"
+                          >
+                            {showKey ? (
+                              <VisibilityOff sx={{ fontSize: 18 }} />
+                            ) : (
+                              <Visibility sx={{ fontSize: 18 }} />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </motion.div>
 
-              <Box>
-                <TextField
-                  label="Default model"
-                  value={defaultModel}
-                  onChange={(e) => setDefaultModel(e.target.value)}
-                  fullWidth
-                  helperText="Used for new chats. You can switch models anytime."
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <TuneOutlined
-                          sx={{ color: "text.secondary", fontSize: 18 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <Stack
-                  direction="row"
-                  spacing={0.75}
-                  sx={{ mt: 1.25, flexWrap: "wrap", gap: 0.75 }}
-                >
-                  {QUICK_MODELS.map((m) => (
-                    <Chip
-                      key={m}
-                      label={m}
-                      size="small"
-                      onClick={() => setDefaultModel(m)}
-                      sx={{
-                        cursor: "pointer",
-                        bgcolor:
-                          defaultModel === m
-                            ? "rgba(139,92,246,0.18)"
-                            : "rgba(161,161,170,0.08)",
-                        color:
-                          defaultModel === m
-                            ? "primary.light"
-                            : "text.secondary",
-                        border:
-                          defaultModel === m
-                            ? "1px solid rgba(139,92,246,0.4)"
-                            : "1px solid transparent",
-                        fontFamily: "monospace",
-                        fontSize: 12,
+                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                  <Box>
+                    <TextField
+                      label="Default model"
+                      value={defaultModel}
+                      onChange={(e) => setDefaultModel(e.target.value)}
+                      fullWidth
+                      helperText="Used for new chats. You can switch models anytime."
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <TuneOutlined
+                              sx={{ color: "text.secondary", fontSize: 18 }}
+                            />
+                          </InputAdornment>
+                        ),
                       }}
                     />
-                  ))}
-                </Stack>
-              </Box>
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      sx={{ mt: 1.25, flexWrap: "wrap", gap: 0.75 }}
+                    >
+                      {QUICK_MODELS.map((m) => (
+                        <Chip
+                          key={m}
+                          label={m}
+                          size="small"
+                          onClick={() => setDefaultModel(m)}
+                          sx={{
+                            cursor: "pointer",
+                            bgcolor:
+                              defaultModel === m
+                                ? "rgba(139,92,246,0.18)"
+                                : "rgba(161,161,170,0.08)",
+                            color:
+                              defaultModel === m
+                                ? "primary.light"
+                                : "text.secondary",
+                            border:
+                              defaultModel === m
+                                ? "1px solid rgba(139,92,246,0.4)"
+                                : "1px solid transparent",
+                            fontFamily: "monospace",
+                            fontSize: 12,
+                          }}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                </motion.div>
 
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                fullWidth
-                disabled={busy}
-                endIcon={!busy ? <ArrowForward /> : undefined}
-                sx={{ mt: 0.5, py: 1.25, fontSize: 14.5 }}
-              >
-                {busy ? (
-                  <CircularProgress size={18} sx={{ color: "white" }} />
-                ) : (
-                  "Verify & continue"
-                )}
-              </Button>
-            </Stack>
+                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled={busy}
+                    endIcon={!busy ? <ArrowForward /> : undefined}
+                    sx={{ mt: 0.5, py: 1.25, fontSize: 14.5 }}
+                  >
+                    {busy ? (
+                      <CircularProgress size={18} sx={{ color: "white" }} />
+                    ) : (
+                      "Verify & continue"
+                    )}
+                  </Button>
+                </motion.div>
+              </Stack>
+            </motion.div>
           </form>
 
           <Divider sx={{ my: 2, borderColor: "rgba(161,161,170,0.1)" }} />
@@ -301,7 +310,7 @@ export default function ConfigPage() {
               Sign out
             </Button>
           </Stack>
-        </Box>
+        </GlassPanel>
       </motion.div>
     </Box>
   );
