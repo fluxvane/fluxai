@@ -633,3 +633,13 @@
     animation: none !important;
   }
 }
+
+/* Loading shimmer sweep for image-generation placeholders (referenced by sx). */
+@keyframes aurora-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
