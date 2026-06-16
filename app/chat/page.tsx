@@ -66,20 +66,31 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // Whether the user is pinned to the bottom. While true, the view follows the
+  // streaming response; once the user scrolls up to re-read, following stops so
+  // we never yank them away mid-read.
+  const atBottomRef = useRef(true);
 
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  // Follow the answer as it streams. Instant (not smooth) so it keeps pace with
+  // rapid token updates — smooth-scroll animations queue up and stall. Runs on
+  // every message mutation (each token replaces the messages array reference).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    const el = scrollRef.current;
+    if (!el || !atBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [chat.messages]);
 
   const handleSend = async () => {
     const content = input.trim();
     if (!content || chat.isStreaming) return;
     setInput("");
+    atBottomRef.current = true; // sending always re-pins to the bottom
     await chat.send(content);
   };
 
@@ -99,6 +110,7 @@ export default function ChatPage() {
     >
       <Box
         ref={scrollRef}
+        onScroll={handleScroll}
         sx={{
           flex: 1,
           overflowY: "auto",
@@ -576,6 +588,8 @@ function MessageBubble({
             <Markdown>{message.content}</Markdown>
             {isStreaming && <Cursor />}
           </Box>
+        ) : isStreaming && !message.reasoning ? (
+          <TypingDots />
         ) : null}
 
         {!isStreaming && message.content && (
@@ -636,5 +650,31 @@ function Cursor() {
         animation: "flux-blink 1.05s steps(2) infinite",
       }}
     />
+  );
+}
+
+// Three bouncing gradient dots shown while the assistant is composing its
+// first token (the "responding" beat before text appears).
+function TypingDots() {
+  return (
+    <Box
+      sx={{ display: "flex", gap: 0.7, alignItems: "center", py: 0.75 }}
+      aria-label="Flux AI is responding"
+    >
+      {[0, 1, 2].map((i) => (
+        <Box
+          key={i}
+          component="span"
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "var(--gradient-brand)",
+            animation: "flux-typing 1.2s ease-in-out infinite",
+            animationDelay: `${i * 0.18}s`,
+          }}
+        />
+      ))}
+    </Box>
   );
 }

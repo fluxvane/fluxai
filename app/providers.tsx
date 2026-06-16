@@ -107,6 +107,21 @@ const theme = createTheme({
           from: { opacity: 0, transform: "translateY(10px)" },
           to: { opacity: 1, transform: "translateY(0)" },
         },
+        "@keyframes flux-typing": {
+          "0%, 80%, 100%": { transform: "scale(0.7)", opacity: 0.4 },
+          "40%": { transform: "scale(1)", opacity: 1 },
+        },
+        "@keyframes flux-think-glow": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(139,92,246,0)" },
+          "50%": { boxShadow: "0 0 22px -4px rgba(139,92,246,0.45)" },
+        },
+        "@media (prefers-reduced-motion: reduce)": {
+          "*": {
+            animationDuration: "0.001ms !important",
+            animationIterationCount: "1 !important",
+            transitionDuration: "0.001ms !important",
+          },
+        },
         // Tighten markdown rendering inside chat bubbles.
         ".flux-markdown p": { margin: "0 0 0.75em" },
         ".flux-markdown p:last-child": { marginBottom: 0 },

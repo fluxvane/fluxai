@@ -57,6 +57,9 @@ export default function ThinkingPanel({
             : "rgba(161,161,170,0.04)",
           overflow: "hidden",
           transition: "border-color 0.3s, background 0.3s",
+          animation: isThinking
+            ? "flux-think-glow 2.4s ease-in-out infinite"
+            : "none",
         }}
       >
         <Box
