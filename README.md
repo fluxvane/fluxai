@@ -35,6 +35,20 @@ Prisma 7.
 - Prisma 7 (`prisma-client` generator + `@prisma/adapter-pg`) on PostgreSQL
 - `jose` (JWT) + `bcryptjs` (password hashing)
 
+## Docker images
+
+Pre-built images are published to GitHub Container Registry on every push to
+`main` (tagged `prod-*`) and `develop` (tagged `dev-*`):
+
+```bash
+docker pull ghcr.io/fluxvane/fluxai:dev-<short-sha>
+docker run --rm -p 3008:3008 ghcr.io/fluxvane/fluxai:dev-<short-sha>
+```
+
+The full set of tags is visible at
+<https://github.com/fluxvane/fluxai/pkgs/container/fluxai>. The package is
+public.
+
 ## Getting started
 
 1. Install dependencies:
