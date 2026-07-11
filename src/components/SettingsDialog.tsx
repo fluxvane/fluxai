@@ -94,9 +94,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     >
       <DialogTitle
         sx={{
-          fontFamily: "var(--font-fraunces), Georgia, serif",
-          fontStyle: "italic",
-          fontWeight: 600,
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
           fontSize: 22,
         }}
       >
@@ -121,8 +120,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     width: 40,
                     height: 40,
                     fontWeight: 700,
-                    background:
-                      "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                    color: "#0c1006",
+                    background: "var(--gradient-brand)",
                   }}
                 >
                   {initial}

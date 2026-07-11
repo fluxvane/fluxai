@@ -220,14 +220,14 @@ export default function ModelPicker({
                         justifyContent: "space-between",
                         gap: 1.5,
                         background: selected
-                          ? "rgba(139,92,246,0.12)"
+                          ? "rgba(118,185,0,0.12)"
                           : "transparent",
                         borderLeft: "2px solid",
                         borderColor: selected ? "primary.light" : "transparent",
                         "&:hover": {
                           background: selected
-                            ? "rgba(139,92,246,0.15)"
-                            : "rgba(161,161,170,0.05)",
+                            ? "rgba(118,185,0,0.15)"
+                            : "rgba(163,172,160,0.05)",
                         },
                         transition: "background 0.1s",
                       }}

@@ -12,24 +12,25 @@ const theme = createTheme({
   palette: {
     mode: "dark",
     primary: {
-      main: "#8b5cf6",
-      light: "#a78bfa",
-      dark: "#7c3aed",
+      main: "#76b900",
+      light: "#a3e635",
+      dark: "#5c9400",
+      contrastText: "#0c1006",
     },
     secondary: {
-      main: "#ec4899",
-      light: "#f472b6",
-      dark: "#db2777",
+      main: "#00b37a",
+      light: "#34d399",
+      dark: "#00875c",
     },
     background: {
-      default: "#09090b",
-      paper: "#18181b",
+      default: "#0b0f0a",
+      paper: "#151a11",
     },
     text: {
-      primary: "#fafafa",
-      secondary: "#a1a1aa",
+      primary: "#f4f7f0",
+      secondary: "#a3aca0",
     },
-    divider: "rgba(161, 161, 170, 0.08)",
+    divider: "rgba(163, 172, 160, 0.08)",
     success: { main: "#22c55e" },
     warning: { main: "#f59e0b" },
     error: { main: "#ef4444" },
@@ -38,24 +39,9 @@ const theme = createTheme({
   typography: {
     fontFamily:
       'var(--font-inter), "Inter", "SF Pro Display", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: {
-      fontFamily: "var(--font-fraunces), Georgia, serif",
-      fontStyle: "italic",
-      fontWeight: 600,
-      letterSpacing: "-0.02em",
-    },
-    h2: {
-      fontFamily: "var(--font-fraunces), Georgia, serif",
-      fontStyle: "italic",
-      fontWeight: 600,
-      letterSpacing: "-0.02em",
-    },
-    h3: {
-      fontFamily: "var(--font-fraunces), Georgia, serif",
-      fontStyle: "italic",
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
+    h1: { fontWeight: 700, letterSpacing: "-0.02em" },
+    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
+    h3: { fontWeight: 700, letterSpacing: "-0.01em" },
     h4: { fontWeight: 700, letterSpacing: "-0.01em" },
     h5: { fontWeight: 600, letterSpacing: "-0.01em" },
     h6: { fontWeight: 600 },
@@ -78,7 +64,7 @@ const theme = createTheme({
       styleOverrides: {
         body: {
           background:
-            "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139,92,246,0.18), transparent 70%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(236,72,153,0.10), transparent 60%), #09090b",
+            "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(118,185,0,0.14), transparent 70%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,179,122,0.08), transparent 60%), #0b0f0a",
           minHeight: "100vh",
         },
         "*": { boxSizing: "border-box" },
@@ -112,8 +98,8 @@ const theme = createTheme({
           "40%": { transform: "scale(1)", opacity: 1 },
         },
         "@keyframes flux-think-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(139,92,246,0)" },
-          "50%": { boxShadow: "0 0 22px -4px rgba(139,92,246,0.45)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(118,185,0,0)" },
+          "50%": { boxShadow: "0 0 22px -4px rgba(118,185,0,0.45)" },
         },
         "@media (prefers-reduced-motion: reduce)": {
           "*": {
@@ -142,7 +128,7 @@ const theme = createTheme({
           padding: "0.15em 0.4em",
           borderRadius: 6,
         },
-        ".flux-markdown a": { color: "#a78bfa" },
+        ".flux-markdown a": { color: "#a3e635" },
         ".flux-markdown ul, .flux-markdown ol": {
           margin: "0 0 0.75em",
           paddingLeft: "1.4em",
@@ -159,10 +145,10 @@ const theme = createTheme({
           textAlign: "left",
         },
         ".flux-markdown blockquote": {
-          borderLeft: "3px solid rgba(139,92,246,0.5)",
+          borderLeft: "3px solid rgba(118,185,0,0.5)",
           margin: "0 0 0.75em",
           paddingLeft: "1em",
-          color: "#a1a1aa",
+          color: "#a3aca0",
         },
       },
     },
@@ -182,11 +168,12 @@ const theme = createTheme({
           padding: "10px 20px",
         },
         containedPrimary: {
-          background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-          boxShadow: "0 4px 14px rgba(139,92,246,0.35)",
+          background: "#76b900",
+          color: "#0c1006",
+          boxShadow: "0 4px 14px rgba(118,185,0,0.35)",
           "&:hover": {
-            background: "linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)",
-            boxShadow: "0 6px 20px rgba(139,92,246,0.45)",
+            background: "#8ed100",
+            boxShadow: "0 6px 20px rgba(118,185,0,0.45)",
           },
         },
       },
@@ -203,7 +190,7 @@ const theme = createTheme({
           "& fieldset": { borderColor: alpha("#a1a1aa", 0.15) },
           "&:hover fieldset": { borderColor: alpha("#a1a1aa", 0.3) },
           "&.Mui-focused fieldset": {
-            borderColor: "#8b5cf6",
+            borderColor: "#76b900",
             borderWidth: 1.5,
           },
         },

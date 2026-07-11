@@ -50,11 +50,11 @@ export default function ThinkingPanel({
           borderRadius: 2,
           border: "1px solid",
           borderColor: isThinking
-            ? "rgba(139,92,246,0.35)"
-            : "rgba(161,161,170,0.14)",
+            ? "rgba(118,185,0,0.35)"
+            : "rgba(163,172,160,0.14)",
           background: isThinking
-            ? "linear-gradient(90deg, rgba(139,92,246,0.10), rgba(236,72,153,0.06))"
-            : "rgba(161,161,170,0.04)",
+            ? "linear-gradient(90deg, rgba(118,185,0,0.10), rgba(0,179,122,0.06))"
+            : "rgba(163,172,160,0.04)",
           overflow: "hidden",
           transition: "border-color 0.3s, background 0.3s",
           animation: isThinking
@@ -155,7 +155,7 @@ export default function ThinkingPanel({
                     ml: 0.4,
                     verticalAlign: "-2px",
                     borderRadius: 0.5,
-                    background: "linear-gradient(180deg,#a78bfa,#ec4899)",
+                    background: "linear-gradient(180deg,#a3e635,#76b900)",
                     animation: "flux-blink 1s steps(2) infinite",
                   }}
                 />

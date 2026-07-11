@@ -180,7 +180,7 @@ function Content({ data }: { data: AnalyticsData }) {
                   interval={0}
                 />
                 <RTooltip
-                  cursor={{ fill: "rgba(139,92,246,0.08)" }}
+                  cursor={{ fill: "rgba(118,185,0,0.08)" }}
                   contentStyle={{
                     background: "var(--surface-solid)",
                     border: "1px solid var(--border)",
@@ -201,8 +201,8 @@ function Content({ data }: { data: AnalyticsData }) {
                 </Bar>
                 <defs>
                   <linearGradient id="fluxBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
+                    <stop offset="0%" stopColor="#a3e635" />
+                    <stop offset="100%" stopColor="#76b900" />
                   </linearGradient>
                 </defs>
               </BarChart>
@@ -306,12 +306,12 @@ function StatCard({
             height: 32,
             borderRadius: 1.5,
             background:
-              "linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(236,72,153,0.15) 100%)",
-            border: "1px solid rgba(139,92,246,0.25)",
+              "linear-gradient(135deg, rgba(118,185,0,0.15) 0%, rgba(0,179,122,0.15) 100%)",
+            border: "1px solid rgba(118,185,0,0.25)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "var(--accent)",
+            color: "var(--accent-2)",
           }}
         >
           {icon}

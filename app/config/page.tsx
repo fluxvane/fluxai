@@ -107,14 +107,14 @@ export default function ConfigPage() {
               width: 52,
               height: 52,
               borderRadius: 3,
-              background: "linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)",
+              background: "var(--gradient-brand)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 10px 30px rgba(139, 92, 246, 0.4)",
+              boxShadow: "0 10px 30px rgba(118, 185, 0, 0.4)",
             }}
           >
-            <TuneOutlined sx={{ color: "white", fontSize: 26 }} />
+            <TuneOutlined sx={{ color: "#0c1006", fontSize: 26 }} />
           </Box>
           <Box>
             <DisplayHeading variant="h4" sx={{ mb: 0.5 }}>
@@ -239,15 +239,15 @@ export default function ConfigPage() {
                             cursor: "pointer",
                             bgcolor:
                               defaultModel === m
-                                ? "rgba(139,92,246,0.18)"
-                                : "rgba(161,161,170,0.08)",
+                                ? "rgba(118,185,0,0.18)"
+                                : "rgba(163,172,160,0.08)",
                             color:
                               defaultModel === m
                                 ? "primary.light"
                                 : "text.secondary",
                             border:
                               defaultModel === m
-                                ? "1px solid rgba(139,92,246,0.4)"
+                                ? "1px solid rgba(118,185,0,0.4)"
                                 : "1px solid transparent",
                             fontFamily: "monospace",
                             fontSize: 12,
