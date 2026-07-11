@@ -184,7 +184,7 @@ export default function ChatPage() {
           pb: { xs: 2, md: 3 },
           pt: 2,
           background:
-            "linear-gradient(180deg, transparent 0%, rgba(9,9,11,0.85) 30%, rgba(9,9,11,0.98) 100%)",
+            "linear-gradient(180deg, transparent 0%, rgba(11,15,10,0.85) 30%, rgba(11,15,10,0.98) 100%)",
           backdropFilter: "blur(12px)",
         }}
       >
@@ -196,14 +196,14 @@ export default function ChatPage() {
               gap: 1,
               p: 1.25,
               borderRadius: 3,
-              border: "1px solid rgba(161,161,170,0.15)",
-              background: "rgba(24,24,27,0.7)",
+              border: "1px solid rgba(163,172,160,0.15)",
+              background: "rgba(21,27,17,0.7)",
               backdropFilter: "blur(20px)",
               boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
               transition: "all 0.2s",
               "&:focus-within": {
-                borderColor: "rgba(139,92,246,0.5)",
-                boxShadow: "0 8px 32px rgba(139,92,246,0.18)",
+                borderColor: "rgba(118,185,0,0.5)",
+                boxShadow: "0 8px 32px rgba(118,185,0,0.18)",
               },
             }}
           >
@@ -246,13 +246,13 @@ export default function ChatPage() {
                     disabled={!input.trim()}
                     sx={{
                       background: input.trim()
-                        ? "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
-                        : "rgba(161,161,170,0.08)",
-                      color: input.trim() ? "white" : "text.secondary",
+                        ? "linear-gradient(135deg, #8ed100 0%, #76b900 100%)"
+                        : "rgba(163,172,160,0.08)",
+                      color: input.trim() ? "#0c1006" : "text.secondary",
                       "&:hover": {
                         background: input.trim()
-                          ? "linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)"
-                          : "rgba(161,161,170,0.14)",
+                          ? "linear-gradient(135deg, #a3e635 0%, #8ed100 100%)"
+                          : "rgba(163,172,160,0.14)",
                       },
                       width: 38,
                       height: 38,
@@ -314,15 +314,15 @@ function EmptyHero({
             width: 56,
             height: 56,
             borderRadius: 2.5,
-            background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+            background: "var(--gradient-brand)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(139,92,246,0.35)",
+            boxShadow: "0 8px 24px rgba(118,185,0,0.35)",
             mb: 3,
           }}
         >
-          <AutoAwesome sx={{ color: "white", fontSize: 28 }} />
+          <AutoAwesome sx={{ color: "#0c1006", fontSize: 28 }} />
         </Box>
       </motion.div>
       <motion.div
@@ -338,7 +338,7 @@ function EmptyHero({
             fontSize: { xs: 30, md: 40 },
             lineHeight: 1.1,
             background:
-              "linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #ec4899 100%)",
+              "linear-gradient(135deg, #f4f7f0 0%, #a3e635 55%, #76b900 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             mb: 1.5,
@@ -377,15 +377,15 @@ function EmptyHero({
               onClick={() => onPrompt(p)}
               sx={{
                 height: 34,
-                bgcolor: "rgba(161,161,170,0.08)",
-                border: "1px solid rgba(161,161,170,0.12)",
+                bgcolor: "rgba(163,172,160,0.08)",
+                border: "1px solid rgba(163,172,160,0.12)",
                 color: "text.primary",
                 fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
                 "&:hover": {
-                  bgcolor: "rgba(139,92,246,0.10)",
-                  borderColor: "rgba(139,92,246,0.4)",
+                  bgcolor: "rgba(118,185,0,0.10)",
+                  borderColor: "rgba(118,185,0,0.4)",
                 },
                 transition: "all 0.15s",
               }}
@@ -432,15 +432,15 @@ function EmptyHero({
               sx={{
                 p: 1.75,
                 borderRadius: 2.5,
-                border: "1px solid rgba(161,161,170,0.10)",
-                background: "rgba(24,24,27,0.4)",
+                border: "1px solid rgba(163,172,160,0.10)",
+                background: "rgba(21,27,17,0.4)",
                 textAlign: "left",
                 cursor: "pointer",
                 transition: "all 0.15s",
                 height: "100%",
                 "&:hover": {
-                  borderColor: "rgba(139,92,246,0.35)",
-                  background: "rgba(139,92,246,0.04)",
+                  borderColor: "rgba(118,185,0,0.35)",
+                  background: "rgba(118,185,0,0.04)",
                   transform: "translateY(-2px)",
                 },
               }}
@@ -516,8 +516,9 @@ function MessageBubble({
             py: 1.4,
             borderRadius: "16px 16px 4px 16px",
             background: "var(--gradient-brand)",
-            color: "#fff",
-            boxShadow: "0 6px 18px rgba(124,58,237,0.30)",
+            color: "#0c1006",
+            fontWeight: 500,
+            boxShadow: "0 6px 18px rgba(118,185,0,0.25)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
             fontSize: 14.5,
@@ -547,7 +548,7 @@ function MessageBubble({
           flexShrink: 0,
           mt: 0.5,
           background: "var(--gradient-brand)",
-          color: "white",
+          color: "#0c1006",
         }}
       >
         <AutoAwesome sx={{ fontSize: 16 }} />
@@ -643,7 +644,7 @@ function Cursor() {
         display: "inline-block",
         width: "0.5em",
         height: "1.05em",
-        background: "linear-gradient(180deg, #a78bfa 0%, #ec4899 100%)",
+        background: "linear-gradient(180deg, #a3e635 0%, #76b900 100%)",
         borderRadius: 0.5,
         ml: 0.3,
         verticalAlign: "-0.16em",

@@ -148,14 +148,14 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                 width: 32,
                 height: 32,
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                background: "var(--gradient-brand)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 2px 10px rgba(139,92,246,0.4)",
+                boxShadow: "0 2px 10px rgba(118,185,0,0.4)",
               }}
             >
-              <AutoAwesome sx={{ color: "white", fontSize: 18 }} />
+              <AutoAwesome sx={{ color: "#0c1006", fontSize: 18 }} />
             </Box>
             <DisplayHeading
               sx={{
@@ -191,8 +191,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   height: 34,
                   fontSize: 14,
                   fontWeight: 700,
-                  background:
-                    "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                  color: "#0c1006",
+                  background: "var(--gradient-brand)",
                 }}
               >
                 {initial}
@@ -212,7 +212,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           sx: {
             mt: 1,
             minWidth: 240,
-            background: "rgba(24,24,27,0.96)",
+            background: "rgba(18,23,15,0.96)",
             backdropFilter: "blur(20px)",
             border: "1px solid rgba(161,161,170,0.12)",
           },
@@ -225,7 +225,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                 width: 36,
                 height: 36,
                 fontWeight: 700,
-                background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                color: "#0c1006",
+                background: "var(--gradient-brand)",
               }}
             >
               {initial}
@@ -307,7 +308,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                     mb: 0.5,
                     transition: "background var(--dur-fast) var(--ease-out)",
                     "&.Mui-selected": {
-                      background: "rgba(139,92,246,0.12)",
+                      background: "rgba(118,185,0,0.14)",
                     },
                   }}
                 >
@@ -448,7 +449,7 @@ function ConversationList({ onSelect }: { onSelect: () => void }) {
                   borderRadius: 2,
                   mb: 0.5,
                   pr: 1,
-                  "&.Mui-selected": { background: "rgba(139,92,246,0.12)" },
+                  "&.Mui-selected": { background: "rgba(118,185,0,0.14)" },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>

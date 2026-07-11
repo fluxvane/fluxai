@@ -1,26 +1,28 @@
 /* =========================================================
-   Flux AI — Aurora design tokens (shared: app + login)
+   Flux AI — NIM design tokens (shared: app + login)
+   NVIDIA NIM aesthetic: near-black green-tinted canvas,
+   #76b900 accents, hairline borders, bold sans.
    ========================================================= */
 :root {
-  --bg: #09090b;
-  --surface: rgba(24, 24, 27, 0.55);
-  --surface-solid: #18181b;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --text: #fafafa;
-  --text-soft: #a1a1aa;
-  --text-mute: #71717a;
-  --accent: #a78bfa;
-  --accent-2: #8b5cf6;
-  --accent-pink: #ec4899;
-  --gradient-brand: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-  --radius-card: 18px;
-  --radius-panel: 14px;
-  --radius-input: 12px;
+  --bg: #0b0f0a;
+  --surface: rgba(21, 27, 17, 0.6);
+  --surface-solid: #151a11;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f7f0;
+  --text-soft: #a3aca0;
+  --text-mute: #6f786c;
+  --accent: #76b900;
+  --accent-2: #a3e635;
+  --accent-cool: #00b37a;
+  --gradient-brand: linear-gradient(135deg, #76b900 0%, #00b37a 100%);
+  --radius-card: 14px;
+  --radius-panel: 12px;
+  --radius-input: 10px;
   --shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 30px 60px -20px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --glow-accent: 0 4px 16px rgba(139, 92, 246, 0.45);
+  --glow-accent: 0 4px 16px rgba(118, 185, 0, 0.45);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 160ms;
   --dur-base: 240ms;
@@ -33,32 +35,30 @@
    ========================================================= */
 
 :root {
-  --login-bg: #09090b;
-  --login-card-bg: rgba(24, 24, 27, 0.55);
-  --login-card-border: rgba(255, 255, 255, 0.07);
-  --login-card-border-strong: rgba(255, 255, 255, 0.14);
-  --login-text: #fafafa;
-  --login-text-soft: #a1a1aa;
-  --login-text-mute: #71717a;
-  --login-accent: #a78bfa;
-  --login-accent-2: #8b5cf6;
-  --login-accent-pink: #ec4899;
+  --login-bg: #0b0f0a;
+  --login-card-bg: rgba(21, 27, 17, 0.6);
+  --login-card-border: rgba(255, 255, 255, 0.08);
+  --login-card-border-strong: rgba(255, 255, 255, 0.16);
+  --login-text: #f4f7f0;
+  --login-text-soft: #a3aca0;
+  --login-text-mute: #6f786c;
+  --login-accent: #76b900;
+  --login-accent-2: #a3e635;
+  --login-accent-cool: #00b37a;
   --login-error: #fda4af;
   --login-error-bg: rgba(244, 63, 94, 0.08);
   --login-error-border: rgba(244, 63, 94, 0.28);
   --login-input-bg: rgba(255, 255, 255, 0.025);
-  --login-radius-card: 18px;
+  --login-radius-card: 14px;
   --login-radius-pill: 999px;
-  --login-radius-input: 12px;
+  --login-radius-input: 10px;
   --login-shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 30px 60px -20px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
   --login-font-sans:
     var(--font-inter), "Inter", "SF Pro Display", "Helvetica Neue", system-ui,
     sans-serif;
-  --login-font-display:
-    var(--font-fraunces, "Fraunces"), "Source Serif Pro", "Newsreader", Georgia,
-    serif;
+  --login-font-display: var(--login-font-sans);
 }
 
 .login-page {
@@ -87,28 +87,28 @@
   will-change: transform;
 }
 
-.login-bg__mesh--violet {
+.login-bg__mesh--green {
   width: 720px;
   height: 720px;
   top: -260px;
   left: -180px;
   background: radial-gradient(
     circle,
-    rgba(139, 92, 246, 0.55) 0%,
-    rgba(139, 92, 246, 0) 65%
+    rgba(118, 185, 0, 0.4) 0%,
+    rgba(118, 185, 0, 0) 65%
   );
   animation: login-mesh-drift 24s ease-in-out infinite;
 }
 
-.login-bg__mesh--pink {
+.login-bg__mesh--emerald {
   width: 640px;
   height: 640px;
   bottom: -240px;
   right: -200px;
   background: radial-gradient(
     circle,
-    rgba(236, 72, 153, 0.32) 0%,
-    rgba(236, 72, 153, 0) 65%
+    rgba(0, 179, 122, 0.26) 0%,
+    rgba(0, 179, 122, 0) 65%
   );
   animation: login-mesh-drift 28s ease-in-out infinite reverse;
 }
@@ -175,9 +175,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 9px;
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 60%, #ec4899 130%);
-  color: #fff;
-  box-shadow: 0 8px 22px -8px rgba(167, 139, 250, 0.6);
+  background: linear-gradient(135deg, #a3e635 0%, #76b900 60%, #00b37a 130%);
+  color: #0c1006;
+  box-shadow: 0 8px 22px -8px rgba(118, 185, 0, 0.6);
 }
 
 .login-brand__name {
@@ -189,15 +189,12 @@
 
 .login-headline {
   font-family: var(--login-font-display);
-  font-weight: 500;
-  font-size: clamp(40px, 5.4vw, 68px);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  font-size: clamp(40px, 5.4vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
   margin: 0;
   color: var(--login-text);
-  font-variation-settings:
-    "opsz" 144,
-    "SOFT" 30;
 }
 
 .login-sub {
@@ -238,8 +235,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(167, 139, 250, 0.16);
-  color: var(--login-accent);
+  background: rgba(118, 185, 0, 0.16);
+  color: var(--login-accent-2);
   font-size: 11px;
 }
 
@@ -311,7 +308,7 @@
 }
 
 .login-mode__btn.is-active {
-  color: #f4f4f5;
+  color: #0c1006;
 }
 
 .login-mode__indicator {
@@ -323,10 +320,10 @@
   border-radius: var(--login-radius-pill);
   background: linear-gradient(
     135deg,
-    rgba(167, 139, 250, 0.95) 0%,
-    rgba(124, 58, 237, 0.95) 100%
+    rgba(163, 230, 53, 0.95) 0%,
+    rgba(118, 185, 0, 0.95) 100%
   );
-  box-shadow: 0 6px 18px -6px rgba(139, 92, 246, 0.6);
+  box-shadow: 0 6px 18px -6px rgba(118, 185, 0, 0.6);
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -406,9 +403,9 @@
 }
 
 .login-field__shell:focus-within {
-  border-color: rgba(167, 139, 250, 0.55);
+  border-color: rgba(118, 185, 0, 0.55);
   background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(118, 185, 0, 0.15);
 }
 
 .login-field__icon {
@@ -472,14 +469,14 @@
   height: 44px;
   border: 0;
   border-radius: var(--login-radius-input);
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #6d28d9 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, #8ed100 0%, #76b900 55%, #5c9400 100%);
+  color: #0c1006;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.005em;
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 10px 24px -10px rgba(124, 58, 237, 0.6);
+  box-shadow: 0 10px 24px -10px rgba(118, 185, 0, 0.6);
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease,
@@ -488,7 +485,7 @@
 
 .login-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px -10px rgba(124, 58, 237, 0.7);
+  box-shadow: 0 14px 28px -10px rgba(118, 185, 0, 0.7);
 }
 
 .login-submit:active:not(:disabled) {
@@ -545,7 +542,7 @@
 }
 
 .login-foot__link:hover {
-  color: #c4b5fd;
+  color: #a3e635;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -569,7 +566,7 @@
   }
 }
 
-/* ---- Aurora app background (shared canvas behind the app shell) ---- */
+/* ---- NIM app background (shared canvas behind the app shell) ---- */
 .aurora-bg {
   position: fixed;
   inset: 0;
@@ -585,29 +582,35 @@
   opacity: 0.5;
   will-change: transform;
 }
-.aurora-bg__mesh--violet {
+.aurora-bg__mesh--green {
   width: 720px;
   height: 720px;
   top: -260px;
   left: -180px;
   background: radial-gradient(
     circle,
-    rgba(139, 92, 246, 0.5) 0%,
-    rgba(139, 92, 246, 0) 65%
+    rgba(118, 185, 0, 0.32) 0%,
+    rgba(118, 185, 0, 0) 65%
   );
   animation: aurora-drift 24s ease-in-out infinite;
 }
-.aurora-bg__mesh--pink {
+.aurora-bg__mesh--emerald {
   width: 640px;
   height: 640px;
   bottom: -240px;
   right: -200px;
   background: radial-gradient(
     circle,
-    rgba(236, 72, 153, 0.3) 0%,
-    rgba(236, 72, 153, 0) 65%
+    rgba(0, 179, 122, 0.22) 0%,
+    rgba(0, 179, 122, 0) 65%
   );
   animation: aurora-drift 28s ease-in-out infinite reverse;
+}
+.aurora-bg__particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .aurora-bg__grain {
   position: absolute;

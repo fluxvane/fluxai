@@ -225,7 +225,7 @@ export default function GenerateImagePage() {
                 sx={{
                   aspectRatio: "1",
                   background:
-                    "linear-gradient(100deg, rgba(255,255,255,0.02) 30%, rgba(139,92,246,0.12) 50%, rgba(255,255,255,0.02) 70%)",
+                    "linear-gradient(100deg, rgba(255,255,255,0.02) 30%, rgba(118,185,0,0.12) 50%, rgba(255,255,255,0.02) 70%)",
                   backgroundSize: "200% 100%",
                   animation: "aurora-shimmer 1.6s linear infinite",
                 }}
@@ -383,8 +383,8 @@ function Gallery({
                       fontSize: 10,
                       alignSelf: "flex-start",
                       fontFamily: "monospace",
-                      bgcolor: "rgba(139,92,246,0.3)",
-                      color: "white",
+                      bgcolor: "rgba(118,185,0,0.25)",
+                      color: "#d8f2b0",
                     }}
                   />
                 </Box>

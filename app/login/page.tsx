@@ -57,8 +57,8 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <div className="login-bg" aria-hidden>
-        <div className="login-bg__mesh login-bg__mesh--violet" />
-        <div className="login-bg__mesh login-bg__mesh--pink" />
+        <div className="login-bg__mesh login-bg__mesh--green" />
+        <div className="login-bg__mesh login-bg__mesh--emerald" />
         <div className="login-bg__grain" />
       </div>
 
