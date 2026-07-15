@@ -62,6 +62,9 @@ public.
    ```env
    DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/flux_ai?schema=public"
    JWT_SECRET="a-long-random-string"
+   # Only needed if you author migrations with `pnpm db:migrate` (prisma migrate dev).
+   # See Database → "Shadow database for `migrate dev`".
+   SHADOW_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/flux_ai_shadow?schema=public"
    ```
 
 3. Create the schema in the database:
@@ -132,6 +135,52 @@ FROM information_schema.role_table_grants
 WHERE table_schema = 'public' AND table_name = 'users';
 -- `flux_ai` should appear with INSERT/UPDATE/SELECT/DELETE
 ```
+
+### Shadow database for `migrate dev`
+
+`prisma migrate dev` (`pnpm db:migrate`) needs a **shadow database** — a scratch
+database Prisma resets and replays migrations into, to detect drift and generate
+new migration SQL. By default Prisma _creates and drops_ this database on the fly,
+which requires the `CREATEDB` privilege. The `flux_ai` role intentionally does
+**not** have `CREATEDB`, so the default behaviour fails with:
+
+```
+Error: P3014 Prisma Migrate could not create the shadow database.
+Original error: ... permission denied to create database
+```
+
+The fix is a **pre-provisioned shadow database that `flux_ai` owns**: Prisma then
+only resets the schema _inside_ it and never needs to create a database. Create it
+once from a superuser/admin role on the same instance (e.g. `192.168.1.219`):
+
+```sql
+-- Run as a superuser (e.g. postgres), NOT as flux_ai (which lacks CREATEDB).
+CREATE DATABASE flux_ai_shadow OWNER flux_ai;
+```
+
+Then add the connection string to your `.env` (same credentials and host as
+`DATABASE_URL`, just a different database name):
+
+```env
+SHADOW_DATABASE_URL="postgresql://flux_ai:PASSWORD@192.168.1.219:5432/flux_ai_shadow?schema=public"
+```
+
+`prisma.config.ts` reads `SHADOW_DATABASE_URL` and wires it into the datasource as
+`shadowDatabaseUrl` **only when it is set** — so `prisma generate` (CI/Docker, no
+DB) and `prisma migrate deploy` (production, no shadow needed) are unaffected. This
+variable is required only when **authoring** migrations locally.
+
+> **Notes**
+>
+> - In Prisma 7 the shadow URL lives in `prisma.config.ts` (under `datasource`),
+>   **not** in the `datasource` block of `schema.prisma` (that's Prisma 6 and below).
+> - `migrate dev` _resets the shadow database_ on every run, so never point
+>   `SHADOW_DATABASE_URL` at a database holding real data.
+> - Devs without admin on the instance can instead point `SHADOW_DATABASE_URL` at a
+>   local throwaway Postgres (e.g. a `docker run … postgres` container) — the only
+>   requirement is that the connecting role owns that shadow database.
+> - In **production / CI deploys**, apply migrations with `prisma migrate deploy`,
+>   which never uses a shadow database. The shadow DB is a local authoring concern.
 
 ## Notes
 

@@ -1,15 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Box,
-  Stack,
-  Typography,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-} from "@mui/material";
+import { Box, Stack, Typography, Chip, CircularProgress } from "@mui/material";
 import {
   AutoAwesome,
   ChatOutlined,
@@ -19,16 +11,21 @@ import {
   TokenOutlined,
 } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  Tooltip as RTooltip,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
+import GlassPanel from "@/components/aurora/GlassPanel";
+import DisplayHeading from "@/components/aurora/DisplayHeading";
+
+// recharts is heavy and only needed here — load it on demand so it stays out
+// of first-load JS for this (and every) route.
+const DailyChart = dynamic(() => import("@/components/analytics/DailyChart"), {
+  ssr: false,
+  loading: () => (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+      <CircularProgress size={20} />
+    </Box>
+  ),
+});
 
 interface AnalyticsData {
   totals: {
@@ -76,14 +73,8 @@ export default function AnalyticsPage() {
           >
             Analytics
           </Typography>
-          <Typography
-            variant="h3"
-            fontWeight={700}
-            sx={{ letterSpacing: "-0.02em" }}
-          >
-            Your activity
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <DisplayHeading variant="h3">Your activity</DisplayHeading>
+          <Typography variant="body2" sx={{ color: "var(--text-soft)" }}>
             Live stats from your account database.
           </Typography>
         </Stack>
@@ -143,14 +134,15 @@ function Content({ data }: { data: AnalyticsData }) {
         }}
       >
         {cards.map((c, i) => (
-          <motion.div
+          <Box
             key={c.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.4 }}
+            sx={{
+              animation: "flux-fade-up 0.4s var(--ease-out) both",
+              animationDelay: `${i * 0.05}s`,
+            }}
           >
             <StatCard {...c} />
-          </motion.div>
+          </Box>
         ))}
       </Box>
 
@@ -161,72 +153,23 @@ function Content({ data }: { data: AnalyticsData }) {
           gap: 2,
         }}
       >
-        <Card
-          sx={{
-            background: "rgba(24,24,27,0.6)",
-            border: "1px solid rgba(161,161,170,0.1)",
-          }}
-        >
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
-              Last 14 days
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Messages per day
-            </Typography>
-            <Box sx={{ height: 220, mt: 2 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={chartData}
-                  margin={{ top: 8, right: 4, left: 4, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval={0}
-                  />
-                  <RTooltip
-                    cursor={{ fill: "rgba(139,92,246,0.08)" }}
-                    contentStyle={{
-                      background: "rgba(20,20,23,0.96)",
-                      border: "1px solid rgba(161,161,170,0.2)",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: "#fafafa" }}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={36}>
-                    {chartData.map((d) => (
-                      <Cell
-                        key={d.date}
-                        fill={
-                          d.count > 0
-                            ? "url(#fluxBar)"
-                            : "rgba(161,161,170,0.12)"
-                        }
-                      />
-                    ))}
-                  </Bar>
-                  <defs>
-                    <linearGradient id="fluxBar" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a78bfa" />
-                      <stop offset="100%" stopColor="#7c3aed" />
-                    </linearGradient>
-                  </defs>
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 1 }}
-            >
-              Peak day: {maxDay} message{maxDay === 1 ? "" : "s"}
-            </Typography>
-          </CardContent>
-        </Card>
+        <GlassPanel sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+            Last 14 days
+          </Typography>
+          <Typography variant="caption" sx={{ color: "var(--text-soft)" }}>
+            Messages per day
+          </Typography>
+          <Box sx={{ height: 220, mt: 2 }}>
+            <DailyChart data={chartData} />
+          </Box>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mt: 1, color: "var(--text-soft)" }}
+          >
+            Peak day: {maxDay} message{maxDay === 1 ? "" : "s"}
+          </Typography>
+        </GlassPanel>
 
         <Stack spacing={2}>
           <StatCard
@@ -235,71 +178,63 @@ function Content({ data }: { data: AnalyticsData }) {
             value={totalTokens}
             subtitle={`${totals.promptTokens} in · ${totals.completionTokens} out`}
           />
-          <Card
-            sx={{
-              background: "rgba(24,24,27,0.6)",
-              border: "1px solid rgba(161,161,170,0.1)",
-              flex: 1,
-            }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                sx={{ mb: 2 }}
-              >
-                <HubOutlined sx={{ color: "primary.light", fontSize: 20 }} />
-                <Typography variant="h6" fontWeight={600}>
-                  Models used
-                </Typography>
-              </Stack>
-              {modelUsage.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No AI responses yet. Start a chat to see model stats.
-                </Typography>
-              ) : (
-                <Stack spacing={1.2}>
-                  {modelUsage.slice(0, 6).map((m) => (
-                    <Box
-                      key={m.model}
-                      sx={{
-                        p: 1.25,
-                        borderRadius: 2,
-                        background: "rgba(161,161,170,0.04)",
-                        border: "1px solid rgba(161,161,170,0.08)",
-                      }}
+          <GlassPanel sx={{ p: 3, flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ mb: 2 }}
+            >
+              <HubOutlined sx={{ color: "var(--accent)", fontSize: 20 }} />
+              <Typography variant="h6" fontWeight={600}>
+                Models used
+              </Typography>
+            </Stack>
+            {modelUsage.length === 0 ? (
+              <Typography variant="body2" sx={{ color: "var(--text-soft)" }}>
+                No AI responses yet. Start a chat to see model stats.
+              </Typography>
+            ) : (
+              <Stack spacing={1.2}>
+                {modelUsage.slice(0, 6).map((m) => (
+                  <Box
+                    key={m.model}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 2,
+                      background: "rgba(161,161,170,0.04)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
                     >
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: "monospace",
+                          fontSize: 12,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          mr: 1,
+                        }}
                       >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontFamily: "monospace",
-                            fontSize: 12,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            mr: 1,
-                          }}
-                        >
-                          {m.model}
-                        </Typography>
-                        <Chip
-                          label={m.count}
-                          size="small"
-                          sx={{ height: 22, fontSize: 11 }}
-                        />
-                      </Stack>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
-            </CardContent>
-          </Card>
+                        {m.model}
+                      </Typography>
+                      <Chip
+                        label={m.count}
+                        size="small"
+                        sx={{ height: 22, fontSize: 11 }}
+                      />
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </GlassPanel>
         </Stack>
       </Box>
     </>
@@ -318,65 +253,50 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <Card
-      sx={{
-        background: "rgba(24,24,27,0.6)",
-        border: "1px solid rgba(161,161,170,0.1)",
-        height: "100%",
-      }}
-    >
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack
-          direction="row"
-          spacing={1.2}
-          alignItems="center"
-          sx={{ mb: 1.5 }}
+    <GlassPanel sx={{ p: 3, height: "100%" }}>
+      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 1.5 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            background:
+              "linear-gradient(135deg, rgba(118,185,0,0.15) 0%, rgba(0,179,122,0.15) 100%)",
+            border: "1px solid rgba(118,185,0,0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--accent-2)",
+          }}
         >
-          <Box
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: 1.5,
-              background:
-                "linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(236,72,153,0.15) 100%)",
-              border: "1px solid rgba(139,92,246,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "primary.light",
-            }}
-          >
-            {icon}
-          </Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {label}
-          </Typography>
-        </Stack>
+          {icon}
+        </Box>
         <Typography
-          variant="h4"
-          fontWeight={700}
-          sx={{ letterSpacing: "-0.02em" }}
+          variant="caption"
+          sx={{
+            color: "var(--text-soft)",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
         >
-          {value.toLocaleString()}
+          {label}
         </Typography>
-        {subtitle && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 0.5, fontSize: 11 }}
-          >
-            {subtitle}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
+      </Stack>
+      <DisplayHeading variant="h4">{value.toLocaleString()}</DisplayHeading>
+      {subtitle && (
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            mt: 0.5,
+            fontSize: 11,
+            color: "var(--text-soft)",
+          }}
+        >
+          {subtitle}
+        </Typography>
+      )}
+    </GlassPanel>
   );
 }

@@ -6,7 +6,6 @@ import {
   PsychologyOutlined,
   KeyboardArrowDownRounded,
 } from "@mui/icons-material";
-import { motion } from "framer-motion";
 
 interface ThinkingPanelProps {
   reasoning: string;
@@ -29,34 +28,37 @@ export default function ThinkingPanel({
     prevThinking.current = isThinking;
   }, [isThinking]);
 
-  // Keep the live thought scrolled to the latest line.
+  // Keep the live thought scrolled to the latest line. Deferred to the next
+  // frame so rapid token updates don't force a synchronous reflow on each one.
   useEffect(() => {
-    if (isThinking && expanded && bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
+    if (!isThinking || !expanded) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
   }, [reasoning, isThinking, expanded]);
 
   if (!reasoning && !isThinking) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      style={{ marginBottom: 12 }}
-    >
+    <Box sx={{ mb: 1.5, animation: "flux-fade-up 0.3s var(--ease-out) both" }}>
       <Box
         sx={{
           borderRadius: 2,
           border: "1px solid",
           borderColor: isThinking
-            ? "rgba(139,92,246,0.35)"
-            : "rgba(161,161,170,0.14)",
+            ? "rgba(118,185,0,0.35)"
+            : "rgba(163,172,160,0.14)",
           background: isThinking
-            ? "linear-gradient(90deg, rgba(139,92,246,0.10), rgba(236,72,153,0.06))"
-            : "rgba(161,161,170,0.04)",
+            ? "linear-gradient(90deg, rgba(118,185,0,0.10), rgba(0,179,122,0.06))"
+            : "rgba(163,172,160,0.04)",
           overflow: "hidden",
-          transition: "border-color 0.3s, background 0.3s",
+          transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s",
+          // Static glow rather than an infinite box-shadow keyframe: animating
+          // box-shadow repaints every frame; a fixed shadow is painted once.
+          boxShadow: isThinking ? "0 0 20px -6px rgba(118,185,0,0.4)" : "none",
         }}
       >
         <Box
@@ -72,18 +74,13 @@ export default function ThinkingPanel({
             "&:hover": { background: "rgba(161,161,170,0.04)" },
           }}
         >
-          <motion.div
-            animate={
-              isThinking
-                ? { rotate: [0, 8, -8, 0], scale: [1, 1.1, 1] }
-                : { rotate: 0, scale: 1 }
-            }
-            transition={
-              isThinking
-                ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
-                : { duration: 0.2 }
-            }
-            style={{ display: "flex" }}
+          <Box
+            sx={{
+              display: "flex",
+              animation: isThinking
+                ? "flux-pulse 1.6s ease-in-out infinite"
+                : "none",
+            }}
           >
             <PsychologyOutlined
               sx={{
@@ -91,7 +88,7 @@ export default function ThinkingPanel({
                 color: isThinking ? "primary.light" : "text.secondary",
               }}
             />
-          </motion.div>
+          </Box>
 
           {isThinking ? (
             <ShimmerLabel />
@@ -105,15 +102,17 @@ export default function ThinkingPanel({
           )}
 
           <Box sx={{ flex: 1 }} />
-          <motion.div
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ display: "flex" }}
+          <Box
+            sx={{
+              display: "flex",
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s var(--ease-out)",
+            }}
           >
             <KeyboardArrowDownRounded
               sx={{ fontSize: 18, color: "text.secondary" }}
             />
-          </motion.div>
+          </Box>
         </Box>
 
         <Collapse in={expanded} timeout={250}>
@@ -152,7 +151,7 @@ export default function ThinkingPanel({
                     ml: 0.4,
                     verticalAlign: "-2px",
                     borderRadius: 0.5,
-                    background: "linear-gradient(180deg,#a78bfa,#ec4899)",
+                    background: "linear-gradient(180deg,#a3e635,#76b900)",
                     animation: "flux-blink 1s steps(2) infinite",
                   }}
                 />
@@ -161,7 +160,7 @@ export default function ThinkingPanel({
           </Box>
         </Collapse>
       </Box>
-    </motion.div>
+    </Box>
   );
 }
 
