@@ -96,3 +96,66 @@ jobs:
             422) echo "[skip] package visibility already public or other 422" ;;
             *) echo "[fail] unexpected HTTP $HTTP"; exit 1 ;;
           esac
+
+  gitops-update:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GITOPS_REPO: gitlab.com/fluxvane/devops/infra-gitops.git
+      GITOPS_ENV_FILE_DEV: tenants/fluxvane/projects/flux-ai/iac/web/environments/dev.yaml
+      GITOPS_ENV_FILE_PROD: tenants/fluxvane/projects/flux-ai/iac/web/environments/prod.yaml
+    steps:
+      - name: Derive env + tag
+        id: meta
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            env="prod"
+          else
+            env="dev"
+          fi
+          short_sha="${GITHUB_SHA:0:7}"
+          echo "env=${env}" >> "$GITHUB_OUTPUT"
+          echo "tag=${env}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up deploy key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.GITOPS_SSH_KEY }}" > ~/.ssh/gitops_deploy_key
+          chmod 600 ~/.ssh/gitops_deploy_key
+          ssh-keyscan -t ed25519 gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Clone infra-gitops
+        run: |
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/gitops_deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts" \
+            git clone --depth 1 "git@${GITOPS_REPO}" infra-gitops
+
+      - name: Bump image tag
+        id: bump
+        working-directory: infra-gitops
+        run: |
+          env="${{ steps.meta.outputs.env }}"
+          tag="${{ steps.meta.outputs.tag }}"
+          if [[ "$env" == "prod" ]]; then
+            file="$GITOPS_ENV_FILE_PROD"
+          else
+            file="$GITOPS_ENV_FILE_DEV"
+          fi
+          sed -i -E "s/^(\s*tag:\s*).*/\1${tag}/" "$file"
+          git diff --stat
+          echo "file=${file}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit + push
+        working-directory: infra-gitops
+        run: |
+          git config user.name "flux-ai-ci"
+          git config user.email "ci@fluxvane.noreply"
+          git add "${{ steps.bump.outputs.file }}"
+          git commit -m "ci(fluxvane/flux-ai): ${{ steps.meta.outputs.env }} -> ${{ steps.meta.outputs.tag }} [skip ci]"
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/gitops_deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts" \
+            git push origin HEAD:main
+
+      - name: Clean up deploy key
+        if: always()
+        run: rm -f ~/.ssh/gitops_deploy_key
