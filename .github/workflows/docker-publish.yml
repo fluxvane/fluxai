@@ -129,7 +129,7 @@ jobs:
       - name: Clone infra-gitops
         run: |
           GIT_SSH_COMMAND="ssh -i ~/.ssh/gitops_deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts" \
-            git clone --depth 1 "git@${GITOPS_REPO}" infra-gitops
+            git clone --depth 1 -b main "git@${GITOPS_REPO}" infra-gitops
 
       - name: Bump image tag
         id: bump
