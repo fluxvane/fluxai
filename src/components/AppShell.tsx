@@ -34,7 +34,6 @@ import {
   DeleteOutline,
   ImageOutlined,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import SettingsDialog from "./SettingsDialog";
@@ -122,8 +121,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: "var(--surface)",
-          backdropFilter: "blur(20px) saturate(180%)",
+          // Solid tint, no backdrop-filter: this bar spans the top over the
+          // animated particle canvas; blur() would re-composite it every frame.
+          bgcolor: "rgba(13,17,10,0.92)",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -212,8 +212,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           sx: {
             mt: 1,
             minWidth: 240,
-            background: "rgba(18,23,15,0.96)",
-            backdropFilter: "blur(20px)",
+            background: "rgba(18,23,15,0.97)",
             border: "1px solid rgba(161,161,170,0.12)",
           },
         }}
@@ -277,8 +276,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         PaperProps={{
           sx: {
             width: 290,
-            background: "var(--surface-solid)",
-            backdropFilter: "blur(20px)",
+            background: "rgba(18,23,15,0.98)",
             borderRight: "1px solid var(--border)",
           },
         }}
@@ -432,57 +430,51 @@ function ConversationList({ onSelect }: { onSelect: () => void }) {
         Recent
       </Typography>
       <List dense sx={{ mt: 0.5 }}>
-        <AnimatePresence initial={false}>
-          {conversations.map((c) => (
-            <motion.div
-              key={c.id}
-              layout
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18 }}
+        {conversations.map((c) => (
+          <Box
+            key={c.id}
+            sx={{ animation: "flux-fade-up 0.22s var(--ease-out) both" }}
+          >
+            <ListItemButton
+              selected={c.id === conversationId}
+              onClick={() => void handleOpen(c.id)}
+              sx={{
+                borderRadius: 2,
+                mb: 0.5,
+                pr: 1,
+                "&.Mui-selected": { background: "rgba(118,185,0,0.14)" },
+              }}
             >
-              <ListItemButton
-                selected={c.id === conversationId}
-                onClick={() => void handleOpen(c.id)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.5,
-                  pr: 1,
-                  "&.Mui-selected": { background: "rgba(118,185,0,0.14)" },
+              <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
+                <ChatOutlined fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={c.title}
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  noWrap: true,
+                  sx: { overflow: "hidden", textOverflow: "ellipsis" },
                 }}
-              >
-                <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
-                  <ChatOutlined fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={c.title}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    noWrap: true,
-                    sx: { overflow: "hidden", textOverflow: "ellipsis" },
+                secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
+                secondaryTypographyProps={{ fontSize: 11 }}
+              />
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  onClick={(e) => void handleDelete(c.id, e)}
+                  sx={{
+                    color: "text.secondary",
+                    opacity: 0.6,
+                    "&:hover": { opacity: 1, color: "error.main" },
                   }}
-                  secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
-                  secondaryTypographyProps={{ fontSize: 11 }}
-                />
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => void handleDelete(c.id, e)}
-                    sx={{
-                      color: "text.secondary",
-                      opacity: 0.6,
-                      "&:hover": { opacity: 1, color: "error.main" },
-                    }}
-                  >
-                    <DeleteOutline sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </ListItemButton>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                >
+                  <DeleteOutline sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </ListItemButton>
+          </Box>
+        ))}
       </List>
     </>
   );

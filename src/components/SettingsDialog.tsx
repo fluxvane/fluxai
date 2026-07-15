@@ -86,7 +86,6 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       PaperProps={{
         sx: {
           background: "var(--surface-solid)",
-          backdropFilter: "blur(24px)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-panel)",
         },

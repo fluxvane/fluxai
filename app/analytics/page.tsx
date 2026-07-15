@@ -11,23 +11,21 @@ import {
   TokenOutlined,
 } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  Tooltip as RTooltip,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
 import GlassPanel from "@/components/aurora/GlassPanel";
 import DisplayHeading from "@/components/aurora/DisplayHeading";
-import {
-  fadeUp,
-  staggerContainer,
-  respectMotion,
-} from "@/components/aurora/motion";
+
+// recharts is heavy and only needed here — load it on demand so it stays out
+// of first-load JS for this (and every) route.
+const DailyChart = dynamic(() => import("@/components/analytics/DailyChart"), {
+  ssr: false,
+  loading: () => (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+      <CircularProgress size={20} />
+    </Box>
+  ),
+});
 
 interface AnalyticsData {
   totals: {
@@ -94,7 +92,6 @@ export default function AnalyticsPage() {
 }
 
 function Content({ data }: { data: AnalyticsData }) {
-  const reduce = useReducedMotion();
   const { totals, modelUsage, daily } = data;
   const totalTokens = totals.promptTokens + totals.completionTokens;
   const maxDay = Math.max(1, ...daily.map((d) => d.count));
@@ -128,29 +125,26 @@ function Content({ data }: { data: AnalyticsData }) {
 
   return (
     <>
-      <motion.div
-        variants={respectMotion(staggerContainer, !!reduce)}
-        initial="hidden"
-        animate="show"
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
+          gap: 2,
+          mb: 2,
+        }}
       >
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
-            gap: 2,
-            mb: 2,
-          }}
-        >
-          {cards.map((c) => (
-            <motion.div
-              key={c.label}
-              variants={respectMotion(fadeUp, !!reduce)}
-            >
-              <StatCard {...c} />
-            </motion.div>
-          ))}
-        </Box>
-      </motion.div>
+        {cards.map((c, i) => (
+          <Box
+            key={c.label}
+            sx={{
+              animation: "flux-fade-up 0.4s var(--ease-out) both",
+              animationDelay: `${i * 0.05}s`,
+            }}
+          >
+            <StatCard {...c} />
+          </Box>
+        ))}
+      </Box>
 
       <Box
         sx={{
@@ -167,46 +161,7 @@ function Content({ data }: { data: AnalyticsData }) {
             Messages per day
           </Typography>
           <Box sx={{ height: 220, mt: 2 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 8, right: 4, left: 4, bottom: 0 }}
-              >
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "var(--text-soft)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0}
-                />
-                <RTooltip
-                  cursor={{ fill: "rgba(118,185,0,0.08)" }}
-                  contentStyle={{
-                    background: "var(--surface-solid)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: "var(--text)" }}
-                />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={36}>
-                  {chartData.map((d) => (
-                    <Cell
-                      key={d.date}
-                      fill={
-                        d.count > 0 ? "url(#fluxBar)" : "rgba(161,161,170,0.12)"
-                      }
-                    />
-                  ))}
-                </Bar>
-                <defs>
-                  <linearGradient id="fluxBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a3e635" />
-                    <stop offset="100%" stopColor="#76b900" />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
+            <DailyChart data={chartData} />
           </Box>
           <Typography
             variant="caption"

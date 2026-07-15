@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Mode = "signin" | "register";
@@ -65,11 +64,9 @@ export default function LoginPage() {
       <div className="login-grid">
         {/* LEFT — pitch */}
         <section className="login-pitch">
-          <motion.div
+          <div
             className="login-brand"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            style={{ animation: "flux-fade-up 0.6s var(--ease-out) both" }}
           >
             <span className="login-brand__mark" aria-hidden>
               <svg
@@ -87,46 +84,37 @@ export default function LoginPage() {
               </svg>
             </span>
             <span className="login-brand__name">Flux AI</span>
-          </motion.div>
+          </div>
 
-          <motion.h1
+          <h1
             className="login-headline"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.7,
-              delay: 0.08,
-              ease: [0.22, 1, 0.36, 1],
+            style={{
+              animation: "flux-fade-up 0.7s var(--ease-out) both",
+              animationDelay: "0.08s",
             }}
           >
             Talk to any model.
             <br />
             Through your own proxy.
-          </motion.h1>
+          </h1>
 
-          <motion.p
+          <p
             className="login-sub"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.7,
-              delay: 0.16,
-              ease: [0.22, 1, 0.36, 1],
+            style={{
+              animation: "flux-fade-up 0.7s var(--ease-out) both",
+              animationDelay: "0.16s",
             }}
           >
             Connect your OpenAI-compatible endpoint, drop in an API key, and
             start chatting with 200+ models — from Gemini and GPT to Claude and
             beyond. Your keys stay in your browser.
-          </motion.p>
+          </p>
 
-          <motion.ul
+          <ul
             className="login-pills"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.7,
-              delay: 0.24,
-              ease: [0.22, 1, 0.36, 1],
+            style={{
+              animation: "flux-fade-up 0.7s var(--ease-out) both",
+              animationDelay: "0.24s",
             }}
           >
             {FEATURE_PILLS.map((pill) => (
@@ -137,16 +125,14 @@ export default function LoginPage() {
                 {pill.label}
               </li>
             ))}
-          </motion.ul>
+          </ul>
         </section>
 
         {/* RIGHT — auth card */}
         <section className="login-card-wrap">
-          <motion.div
+          <div
             className="login-card"
-            initial={{ opacity: 0, y: 18, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            style={{ animation: "flux-fade-up 0.55s var(--ease-out) both" }}
           >
             {/* mode switcher */}
             <div
@@ -197,61 +183,55 @@ export default function LoginPage() {
             </p>
 
             {error && (
-              <motion.div
+              <div
                 className="login-error"
                 role="alert"
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
+                style={{ animation: "flux-fade-up 0.2s var(--ease-out) both" }}
               >
                 {error}
-              </motion.div>
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="login-form" noValidate>
-              <AnimatePresence initial={false} mode="popLayout">
-                {mode === "register" && (
-                  <motion.div
-                    key="name"
-                    className="login-field"
-                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                    animate={{ opacity: 1, height: "auto", marginTop: 14 }}
-                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                    transition={{ duration: 0.22 }}
-                    style={{ overflow: "hidden" }}
-                  >
-                    <label htmlFor="auth-name" className="login-field__label">
-                      Your name <span aria-hidden>*</span>
-                    </label>
-                    <div className="login-field__shell">
-                      <span className="login-field__icon" aria-hidden>
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="15"
-                          height="15"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="12" cy="8" r="4" />
-                          <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-                        </svg>
-                      </span>
-                      <input
-                        id="auth-name"
-                        type="text"
-                        className="login-field__input"
-                        placeholder="Ada Lovelace"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        autoComplete="name"
-                        required={mode === "register"}
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {mode === "register" && (
+                <div
+                  className="login-field"
+                  style={{
+                    animation: "flux-fade-up 0.25s var(--ease-out) both",
+                  }}
+                >
+                  <label htmlFor="auth-name" className="login-field__label">
+                    Your name <span aria-hidden>*</span>
+                  </label>
+                  <div className="login-field__shell">
+                    <span className="login-field__icon" aria-hidden>
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="15"
+                        height="15"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                      </svg>
+                    </span>
+                    <input
+                      id="auth-name"
+                      type="text"
+                      className="login-field__input"
+                      placeholder="Ada Lovelace"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
+                      required={mode === "register"}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="login-field">
                 <label htmlFor="auth-email" className="login-field__label">
@@ -409,7 +389,7 @@ export default function LoginPage() {
                 {mode === "signin" ? "Create one" : "Sign in"}
               </button>
             </p>
-          </motion.div>
+          </div>
         </section>
       </div>
     </main>

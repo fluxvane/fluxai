@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useReducedMotion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 /**
  * Fixed, behind-everything NIM-style backdrop: two soft green mesh glows
@@ -28,7 +28,7 @@ interface Particle {
 }
 
 function seedParticles(width: number, height: number): Particle[] {
-  const count = Math.min(140, Math.floor((width * height) / 18_000));
+  const count = Math.min(80, Math.floor((width * height) / 30_000));
   return Array.from({ length: count }, () => ({
     x: Math.random() * width,
     y: Math.random() * height,
@@ -74,7 +74,7 @@ function drawFrame(
 }
 
 export default function AuroraBackground() {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -87,6 +87,10 @@ export default function AuroraBackground() {
     let particles: Particle[] = [];
     let rafId = 0;
     let lastTs = 0;
+    let lastDraw = 0;
+    // Cap the field at 30fps: ambient drift needs no more, and it halves the
+    // per-frame paint (which matters most on lower-powered machines).
+    const FRAME_MS = 1000 / 30;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -100,8 +104,11 @@ export default function AuroraBackground() {
     };
 
     const tick = (ts: number) => {
+      rafId = requestAnimationFrame(tick);
+      if (ts - lastDraw < FRAME_MS) return; // throttle to FRAME_MS
       const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.1) : 0;
       lastTs = ts;
+      lastDraw = ts;
       for (const p of particles) {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
@@ -111,7 +118,6 @@ export default function AuroraBackground() {
         else if (p.x > width + 8) p.x = -8;
       }
       drawFrame(ctx, particles, width, height, ts / 1000);
-      rafId = requestAnimationFrame(tick);
     };
 
     const start = () => {

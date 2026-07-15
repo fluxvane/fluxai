@@ -20,17 +20,11 @@ import {
   ImageOutlined,
   ErrorOutline,
 } from "@mui/icons-material";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import ModelPicker from "@/components/ModelPicker";
 import GlassPanel from "@/components/aurora/GlassPanel";
 import DisplayHeading from "@/components/aurora/DisplayHeading";
-import {
-  fadeUp,
-  staggerContainer,
-  respectMotion,
-} from "@/components/aurora/motion";
 
 interface GeneratedImage {
   id: string;
@@ -57,7 +51,6 @@ export default function GenerateImagePage() {
   const [size, setSize] = useState("1024x1024");
   const [n, setN] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const reduce = useReducedMotion();
 
   const { data: gallery = [] } = useQuery({
     queryKey: ["images"],
@@ -234,19 +227,13 @@ export default function GenerateImagePage() {
           </Box>
         )}
 
-        <Gallery images={gallery} reduce={!!reduce} />
+        <Gallery images={gallery} />
       </Box>
     </AppShell>
   );
 }
 
-function Gallery({
-  images,
-  reduce,
-}: {
-  images: GeneratedImage[];
-  reduce: boolean;
-}) {
+function Gallery({ images }: { images: GeneratedImage[] }) {
   if (images.length === 0) {
     return (
       <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
@@ -263,136 +250,131 @@ function Gallery({
       <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
         Gallery
       </Typography>
-      <motion.div
-        variants={respectMotion(staggerContainer, reduce)}
-        initial="hidden"
-        animate="show"
-        style={{
+      <Box
+        sx={{
           display: "grid",
           gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "16px",
+          gap: 2,
         }}
       >
-        <AnimatePresence initial={false}>
-          {images.map((img) => (
-            <motion.div
-              key={img.id}
-              layout
-              variants={respectMotion(fadeUp, reduce)}
-              initial="hidden"
-              animate="show"
+        {images.map((img, i) => (
+          <Box
+            key={img.id}
+            sx={{
+              animation: "flux-fade-up 0.4s var(--ease-out) both",
+              animationDelay: `${Math.min(i, 8) * 0.04}s`,
+            }}
+          >
+            <GlassPanel
+              hover
+              sx={{
+                overflow: "hidden",
+                p: 0,
+                position: "relative",
+                "&:hover .flux-overlay": { opacity: 1 },
+                "& img": {
+                  transition: "transform var(--dur-base) var(--ease-out)",
+                },
+                "&:hover img": { transform: "scale(1.03)" },
+              }}
             >
-              <GlassPanel
-                hover
-                sx={{
-                  overflow: "hidden",
-                  p: 0,
-                  position: "relative",
-                  "&:hover .flux-overlay": { opacity: 1 },
-                  "& img": {
-                    transition: "transform var(--dur-base) var(--ease-out)",
-                  },
-                  "&:hover img": { transform: "scale(1.03)" },
-                }}
-              >
-                {img.src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={img.src}
-                    alt={img.prompt}
-                    style={{
-                      width: "100%",
-                      aspectRatio: "1",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      aspectRatio: "1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "text.secondary",
-                    }}
-                  >
-                    <ImageOutlined />
-                  </Box>
-                )}
+              {img.src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={img.src}
+                  alt={img.prompt}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
                 <Box
-                  className="flux-overlay"
                   sx={{
-                    position: "absolute",
-                    inset: 0,
-                    p: 1.5,
+                    aspectRatio: "1",
                     display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    background:
-                      "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%)",
-                    opacity: 0,
-                    transition: "opacity 0.2s",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "text.secondary",
                   }}
                 >
-                  <Stack
-                    direction="row"
-                    alignItems="flex-end"
-                    justifyContent="space-between"
-                    spacing={1}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "white",
-                        fontSize: 11,
-                        lineHeight: 1.3,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {img.prompt}
-                    </Typography>
-                    {img.src && (
-                      <Tooltip title="Download">
-                        <IconButton
-                          size="small"
-                          component="a"
-                          href={img.src}
-                          download={`flux-${img.id}.png`}
-                          target="_blank"
-                          sx={{
-                            color: "white",
-                            bgcolor: "rgba(0,0,0,0.4)",
-                            "&:hover": { bgcolor: "rgba(0,0,0,0.6)" },
-                          }}
-                        >
-                          <DownloadOutlined sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Stack>
-                  <Chip
-                    label={img.model}
-                    size="small"
-                    sx={{
-                      mt: 1,
-                      height: 20,
-                      fontSize: 10,
-                      alignSelf: "flex-start",
-                      fontFamily: "monospace",
-                      bgcolor: "rgba(118,185,0,0.25)",
-                      color: "#d8f2b0",
-                    }}
-                  />
+                  <ImageOutlined />
                 </Box>
-              </GlassPanel>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </motion.div>
+              )}
+              <Box
+                className="flux-overlay"
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  p: 1.5,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  background:
+                    "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.8) 100%)",
+                  opacity: 0,
+                  transition: "opacity 0.2s",
+                }}
+              >
+                <Stack
+                  direction="row"
+                  alignItems="flex-end"
+                  justifyContent="space-between"
+                  spacing={1}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "white",
+                      fontSize: 11,
+                      lineHeight: 1.3,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {img.prompt}
+                  </Typography>
+                  {img.src && (
+                    <Tooltip title="Download">
+                      <IconButton
+                        size="small"
+                        component="a"
+                        href={img.src}
+                        download={`flux-${img.id}.png`}
+                        target="_blank"
+                        sx={{
+                          color: "white",
+                          bgcolor: "rgba(0,0,0,0.4)",
+                          "&:hover": { bgcolor: "rgba(0,0,0,0.6)" },
+                        }}
+                      >
+                        <DownloadOutlined sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Stack>
+                <Chip
+                  label={img.model}
+                  size="small"
+                  sx={{
+                    mt: 1,
+                    height: 20,
+                    fontSize: 10,
+                    alignSelf: "flex-start",
+                    fontFamily: "monospace",
+                    bgcolor: "rgba(118,185,0,0.25)",
+                    color: "#d8f2b0",
+                  }}
+                />
+              </Box>
+            </GlassPanel>
+          </Box>
+        ))}
+      </Box>
     </>
   );
 }

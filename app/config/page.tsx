@@ -25,22 +25,15 @@ import {
   CheckCircleOutlineRounded,
   LogoutOutlined,
 } from "@mui/icons-material";
-import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import GlassPanel from "@/components/aurora/GlassPanel";
 import DisplayHeading from "@/components/aurora/DisplayHeading";
-import {
-  fadeUp,
-  staggerContainer,
-  respectMotion,
-} from "@/components/aurora/motion";
 
 const QUICK_MODELS = ["chat", "speed", "coding", "hermes", "review"];
 
 export default function ConfigPage() {
   const router = useRouter();
   const { user, isLoaded, config, saveConfig, logout } = useAuth();
-  const reduce = useReducedMotion();
   const [endpoint, setEndpoint] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [defaultModel, setDefaultModel] = useState("chat");
@@ -84,18 +77,30 @@ export default function ConfigPage() {
   return (
     <Box
       sx={{
+        position: "relative",
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         p: 2,
+        overflow: "hidden",
       }}
     >
-      <motion.div
-        variants={respectMotion(fadeUp, !!reduce)}
-        initial="hidden"
-        animate="show"
-        style={{ width: "100%", maxWidth: 480 }}
+      {/* Cheap CSS mesh backdrop (shared with login) so the setup card has the
+          same green depth as the rest of the app — no particle canvas here. */}
+      <Box className="login-bg" aria-hidden>
+        <Box className="login-bg__mesh login-bg__mesh--green" />
+        <Box className="login-bg__mesh login-bg__mesh--emerald" />
+        <Box className="login-bg__grain" />
+      </Box>
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: 460,
+          position: "relative",
+          zIndex: 1,
+          animation: "flux-fade-up 0.4s var(--ease-out) both",
+        }}
       >
         <Stack
           spacing={2}
@@ -131,7 +136,7 @@ export default function ConfigPage() {
           </Box>
         </Stack>
 
-        <GlassPanel sx={{ p: 4, maxWidth: 520, mx: "auto" }}>
+        <GlassPanel sx={{ p: { xs: 3, md: 4 } }}>
           {error && (
             <Alert
               severity="error"
@@ -142,13 +147,11 @@ export default function ConfigPage() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <motion.div
-              variants={respectMotion(staggerContainer, !!reduce)}
-              initial="hidden"
-              animate="show"
-            >
+            <Box>
               <Stack spacing={2}>
-                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                <Box
+                  sx={{ animation: "flux-fade-up 0.4s var(--ease-out) both" }}
+                >
                   <TextField
                     label="AI Endpoint"
                     placeholder="https://your-proxy.example.com/v1"
@@ -167,9 +170,11 @@ export default function ConfigPage() {
                       ),
                     }}
                   />
-                </motion.div>
+                </Box>
 
-                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                <Box
+                  sx={{ animation: "flux-fade-up 0.4s var(--ease-out) both" }}
+                >
                   <TextField
                     label="API Key"
                     placeholder="sk-…"
@@ -204,9 +209,11 @@ export default function ConfigPage() {
                       ),
                     }}
                   />
-                </motion.div>
+                </Box>
 
-                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                <Box
+                  sx={{ animation: "flux-fade-up 0.4s var(--ease-out) both" }}
+                >
                   <Box>
                     <TextField
                       label="Default model"
@@ -256,9 +263,11 @@ export default function ConfigPage() {
                       ))}
                     </Stack>
                   </Box>
-                </motion.div>
+                </Box>
 
-                <motion.div variants={respectMotion(fadeUp, !!reduce)}>
+                <Box
+                  sx={{ animation: "flux-fade-up 0.4s var(--ease-out) both" }}
+                >
                   <Button
                     type="submit"
                     variant="contained"
@@ -274,9 +283,9 @@ export default function ConfigPage() {
                       "Verify & continue"
                     )}
                   </Button>
-                </motion.div>
+                </Box>
               </Stack>
-            </motion.div>
+            </Box>
           </form>
 
           <Divider sx={{ my: 2, borderColor: "rgba(161,161,170,0.1)" }} />
@@ -311,7 +320,7 @@ export default function ConfigPage() {
             </Button>
           </Stack>
         </GlassPanel>
-      </motion.div>
+      </Box>
     </Box>
   );
 }

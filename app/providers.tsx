@@ -4,7 +4,6 @@ import React from "react";
 import { ThemeProvider, createTheme, CssBaseline, alpha } from "@mui/material";
 import "highlight.js/styles/github-dark.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SnackbarProvider } from "notistack";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ChatProvider } from "@/hooks/useChat";
 
@@ -54,9 +53,10 @@ const theme = createTheme({
     MuiMenu: {
       styleOverrides: {
         paper: {
-          background: "var(--surface-solid)",
+          // Solid tint (no backdrop-filter): the menu overlays the animated
+          // particle canvas, and blur() would force a full re-blur every frame.
+          background: "rgba(18,23,15,0.97)",
           border: "1px solid var(--border)",
-          backdropFilter: "blur(20px)",
         },
       },
     },
@@ -185,8 +185,9 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          background: alpha("#ffffff", 0.03),
-          backdropFilter: "blur(10px)",
+          // Opaque-ish tint instead of backdrop-filter: every text field used
+          // this blur, and over the animated background it re-blurred per frame.
+          background: "rgba(20,25,15,0.55)",
           "& fieldset": { borderColor: alpha("#a1a1aa", 0.15) },
           "&:hover fieldset": { borderColor: alpha("#a1a1aa", 0.3) },
           "&.Mui-focused fieldset": {
@@ -220,13 +221,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <SnackbarProvider
-            maxSnack={3}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            autoHideDuration={3000}
-          >
-            <ChatProvider>{children}</ChatProvider>
-          </SnackbarProvider>
+          <ChatProvider>{children}</ChatProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </AuthProvider>
