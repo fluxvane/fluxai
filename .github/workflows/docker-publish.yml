@@ -103,7 +103,7 @@ jobs:
     permissions:
       contents: read
     env:
-      GITOPS_REPO: gitlab.com/fluxvane/devops/infra-gitops.git
+      GITOPS_REPO: gitlab.com:fluxvane/devops/infra-gitops.git
       GITOPS_ENV_FILE_DEV: tenants/fluxvane/projects/flux-ai/iac/web/environments/dev.yaml
       GITOPS_ENV_FILE_PROD: tenants/fluxvane/projects/flux-ai/iac/web/environments/prod.yaml
     steps:
