@@ -74,28 +74,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Tolerate 404 (package not yet created on first push) and 422
-          # (already public, or other constraint). The lib's paid-plan
-          # grep doesn't match these — inline toleration here.
+          # (already public, or other constraint). gh api has no curl-style
+          # -o/-w flags; parse its "(HTTP nnn)" error suffix instead.
           set +e
-          HTTP=$(gh api \
+          OUT=$(gh api \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \
             /orgs/fluxvane/packages/container/fluxai \
-            -f visibility=public \
-            --include -o /dev/null -w "%{http_code}")
+            -f visibility=public 2>&1)
           gh_status=$?
           set -e
-          # If gh itself failed (auth, network), the captured HTTP may be empty.
-          if [[ $gh_status -ne 0 && -z "$HTTP" ]]; then
-            echo "[fail] gh api exited $gh_status"
+          if [[ $gh_status -eq 0 ]]; then
+            echo "[ok] package set to public"
+          elif echo "$OUT" | grep -q "(HTTP 404)"; then
+            echo "[skip] package does not exist yet (will retry next push)"
+          elif echo "$OUT" | grep -q "(HTTP 422)"; then
+            echo "[skip] package visibility already public or other 422"
+          else
+            echo "[fail] $OUT"
             exit 1
           fi
-          case "$HTTP" in
-            2*) echo "[ok] package set to public" ;;
-            404) echo "[skip] package does not exist yet (will retry next push)" ;;
-            422) echo "[skip] package visibility already public or other 422" ;;
-            *) echo "[fail] unexpected HTTP $HTTP"; exit 1 ;;
-          esac
 
   gitops-update:
     needs: build-and-push
