@@ -9,8 +9,10 @@ import {
   IconButton,
   Avatar,
   Tooltip,
-  Chip,
-  Divider,
+  Button,
+  ButtonBase,
+  Fab,
+  Zoom,
 } from "@mui/material";
 import {
   SendOutlined,
@@ -19,8 +21,10 @@ import {
   ContentCopyOutlined,
   RefreshOutlined,
   CheckOutlined,
+  KeyboardArrowDownRounded,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
+import { useSnackbar } from "notistack";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/contexts/AuthContext";
 import AppShell from "@/components/AppShell";
@@ -53,13 +57,6 @@ const SUGGESTIONS = [
   },
 ];
 
-const STARTER_PROMPTS = [
-  "What can you help me with?",
-  "Compare React and Svelte for a new project",
-  "Explain quantum entanglement like I am five",
-  "Draft a polite follow-up email",
-];
-
 export default function ChatPage() {
   const { user } = useAuth();
   const chat = useChat();
@@ -70,12 +67,33 @@ export default function ChatPage() {
   // streaming response; once the user scrolls up to re-read, following stops so
   // we never yank them away mid-read.
   const atBottomRef = useRef(true);
+  const [showJump, setShowJump] = useState(false);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    atBottomRef.current = atBottom;
+    setShowJump(!atBottom);
   };
+
+  const jumpToLatest = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottomRef.current = true;
+    setShowJump(false);
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  };
+
+  // Focus the composer when a chat opens or is reset (pointer devices only,
+  // so phones don't pop the keyboard over the conversation).
+  useEffect(() => {
+    if (window.matchMedia("(pointer: fine)").matches) {
+      inputRef.current?.focus();
+    }
+    atBottomRef.current = true;
+    setShowJump(false);
+  }, [chat.conversationId]);
 
   // Follow the answer as it streams. Instant (not smooth) so it keeps pace with
   // rapid token updates — smooth-scroll animations queue up and stall. Runs on
@@ -95,10 +113,29 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    // Ignore Enter while an IME composition (e.g. CJK input) is in progress.
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       void handleSend();
+    } else if (event.key === "Escape" && chat.isStreaming) {
+      event.preventDefault();
+      chat.abort();
     }
+  };
+
+  const fillPrompt = (prompt: string) => {
+    setInput(prompt);
+    // Wait for the value to land, then focus with the caret at the end.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(prompt.length, prompt.length);
+    });
   };
 
   const isEmpty = chat.messages.length === 0;
@@ -120,13 +157,7 @@ export default function ChatPage() {
         }}
       >
         {isEmpty ? (
-          <EmptyHero
-            name={firstName}
-            onPrompt={(prompt) => {
-              setInput(prompt);
-              inputRef.current?.focus();
-            }}
-          />
+          <EmptyHero name={firstName} onPrompt={fillPrompt} />
         ) : (
           <Box
             sx={{
@@ -154,16 +185,36 @@ export default function ChatPage() {
               })}
               {chat.error && (
                 <Box
+                  role="alert"
                   sx={{
                     p: 2,
                     borderRadius: 2,
                     bgcolor: "rgba(239,68,68,0.08)",
                     border: "1px solid rgba(239,68,68,0.25)",
+                    display: "flex",
+                    alignItems: { xs: "flex-start", sm: "center" },
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: 1.5,
                   }}
                 >
-                  <Typography variant="body2" color="error.main">
+                  <Typography
+                    variant="body2"
+                    color="error.light"
+                    sx={{ flex: 1, wordBreak: "break-word" }}
+                  >
                     {chat.error}
                   </Typography>
+                  {!chat.isStreaming && (
+                    <Button
+                      size="small"
+                      color="inherit"
+                      startIcon={<RefreshOutlined sx={{ fontSize: 16 }} />}
+                      onClick={() => void chat.regenerate()}
+                      sx={{ flexShrink: 0, py: 0.5, px: 1.5 }}
+                    >
+                      Retry
+                    </Button>
+                  )}
                 </Box>
               )}
             </Stack>
@@ -188,6 +239,26 @@ export default function ChatPage() {
           backdropFilter: "blur(12px)",
         }}
       >
+        <Zoom in={showJump && !isEmpty}>
+          <Fab
+            size="small"
+            aria-label="Jump to latest message"
+            onClick={jumpToLatest}
+            sx={{
+              position: "absolute",
+              top: -28,
+              left: "50%",
+              ml: "-20px",
+              bgcolor: "var(--surface-solid)",
+              color: "text.primary",
+              border: "1px solid var(--border-strong)",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+              "&:hover": { bgcolor: "#1d2417" },
+            }}
+          >
+            <KeyboardArrowDownRounded />
+          </Fab>
+        </Zoom>
         <Box sx={{ maxWidth: 780, mx: "auto" }}>
           <Box
             sx={{
@@ -217,6 +288,7 @@ export default function ChatPage() {
               placeholder="Message Flux AI…"
               fullWidth
               variant="standard"
+              inputProps={{ "aria-label": "Message Flux AI" }}
               InputProps={{
                 disableUnderline: true,
                 sx: { fontSize: 15, px: 1.5, py: 0.5 },
@@ -224,7 +296,7 @@ export default function ChatPage() {
               sx={{ flex: 1 }}
             />
             {chat.isStreaming ? (
-              <Tooltip title="Stop generating">
+              <Tooltip title="Stop generating (Esc)">
                 <IconButton
                   onClick={chat.abort}
                   sx={{
@@ -273,10 +345,17 @@ export default function ChatPage() {
               textAlign: "center",
               mt: 1.5,
               fontSize: 11,
-              opacity: 0.7,
+              opacity: 0.8,
             }}
           >
             Flux AI · {chat.model || "no model"} · responses can be inaccurate
+            <Box
+              component="span"
+              sx={{ display: { xs: "none", md: "inline" } }}
+            >
+              {" "}
+              · Shift+Enter for a new line
+            </Box>
           </Typography>
         </Box>
       </Box>
@@ -351,65 +430,9 @@ function EmptyHero({
           color="text.secondary"
           sx={{ fontSize: 16, maxWidth: 460, mb: 5, mx: "auto" }}
         >
-          Pick a starter or just start typing. Anything goes.
+          Pick a starter below or just start typing.
         </Typography>
       </motion.div>
-
-      <Box
-        sx={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 1,
-          justifyContent: "center",
-          maxWidth: 560,
-          mb: 5,
-        }}
-      >
-        {STARTER_PROMPTS.map((p, i) => (
-          <motion.div
-            key={p}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + i * 0.05 }}
-          >
-            <Chip
-              label={p}
-              onClick={() => onPrompt(p)}
-              sx={{
-                height: 34,
-                bgcolor: "rgba(163,172,160,0.08)",
-                border: "1px solid rgba(163,172,160,0.12)",
-                color: "text.primary",
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: "pointer",
-                "&:hover": {
-                  bgcolor: "rgba(118,185,0,0.10)",
-                  borderColor: "rgba(118,185,0,0.4)",
-                },
-                transition: "all 0.15s",
-              }}
-            />
-          </motion.div>
-        ))}
-      </Box>
-
-      <Divider
-        sx={{
-          width: "100%",
-          maxWidth: 560,
-          mb: 2,
-          borderColor: "rgba(161,161,170,0.08)",
-        }}
-      >
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ px: 1, fontSize: 11, letterSpacing: "0.08em" }}
-        >
-          TRY ONE OF THESE
-        </Typography>
-      </Divider>
 
       <Box
         sx={{
@@ -425,9 +448,10 @@ function EmptyHero({
             key={s.label}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 + i * 0.06 }}
+            transition={{ delay: 0.2 + i * 0.06 }}
+            style={{ height: "100%" }}
           >
-            <Box
+            <ButtonBase
               onClick={() => onPrompt(s.prompt)}
               sx={{
                 p: 1.75,
@@ -435,10 +459,11 @@ function EmptyHero({
                 border: "1px solid rgba(163,172,160,0.10)",
                 background: "rgba(21,27,17,0.4)",
                 textAlign: "left",
-                cursor: "pointer",
+                display: "block",
+                width: "100%",
                 transition: "all 0.15s",
                 height: "100%",
-                "&:hover": {
+                "&:hover, &.Mui-focusVisible": {
                   borderColor: "rgba(118,185,0,0.35)",
                   background: "rgba(118,185,0,0.04)",
                   transform: "translateY(-2px)",
@@ -451,7 +476,7 @@ function EmptyHero({
                 alignItems="center"
                 sx={{ mb: 0.5 }}
               >
-                <Typography sx={{ fontSize: 16, lineHeight: 1 }}>
+                <Typography sx={{ fontSize: 16, lineHeight: 1 }} aria-hidden>
                   {s.icon}
                 </Typography>
                 <Typography
@@ -469,7 +494,7 @@ function EmptyHero({
               >
                 {s.prompt}
               </Typography>
-            </Box>
+            </ButtonBase>
           </motion.div>
         ))}
       </Box>
@@ -489,12 +514,17 @@ function MessageBubble({
   onRegenerate: () => void;
 }) {
   const isUser = message.role === "user";
+  const { enqueueSnackbar } = useSnackbar();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      enqueueSnackbar("Couldn't copy to the clipboard.", { variant: "error" });
+    }
   };
 
   // "Thinking" = streaming this assistant message but no answer text yet.
@@ -586,10 +616,7 @@ function MessageBubble({
         />
 
         {message.content ? (
-          <Box sx={{ display: "flex", alignItems: "flex-start" }}>
-            <Markdown>{message.content}</Markdown>
-            {isStreaming && <Cursor />}
-          </Box>
+          <Markdown streaming={isStreaming}>{message.content}</Markdown>
         ) : isStreaming && !message.reasoning ? (
           <TypingDots />
         ) : null}
@@ -605,7 +632,7 @@ function MessageBubble({
               transition: "opacity 0.15s",
             }}
           >
-            <Tooltip title={copied ? "Copied" : "Copy"}>
+            <Tooltip title={copied ? "Copied" : "Copy response"}>
               <IconButton
                 size="small"
                 onClick={handleCopy}
@@ -636,30 +663,12 @@ function MessageBubble({
   );
 }
 
-function Cursor() {
-  return (
-    <Box
-      component="span"
-      sx={{
-        display: "inline-block",
-        width: "0.5em",
-        height: "1.05em",
-        background: "linear-gradient(180deg, #a3e635 0%, #76b900 100%)",
-        borderRadius: 0.5,
-        ml: 0.3,
-        verticalAlign: "-0.16em",
-        flexShrink: 0,
-        animation: "flux-blink 1.05s steps(2) infinite",
-      }}
-    />
-  );
-}
-
 // Three bouncing gradient dots shown while the assistant is composing its
 // first token (the "responding" beat before text appears).
 function TypingDots() {
   return (
     <Box
+      role="status"
       sx={{ display: "flex", gap: 0.7, alignItems: "center", py: 0.75 }}
       aria-label="Flux AI is responding"
     >

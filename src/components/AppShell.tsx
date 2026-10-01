@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AppBar,
@@ -13,49 +13,30 @@ import {
   Tooltip,
   Stack,
   Drawer,
-  List,
-  ListItemButton,
   ListItemIcon,
   ListItemText,
   Divider,
   Menu,
   MenuItem,
-  Button,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   AutoAwesome,
-  ChatOutlined,
-  AnalyticsOutlined,
   SettingsOutlined,
   LogoutOutlined,
   Menu as MenuIcon,
-  AddOutlined,
-  DeleteOutline,
-  ImageOutlined,
+  MenuOpenOutlined,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useChat } from "@/hooks/useChat";
 import SettingsDialog from "./SettingsDialog";
+import Sidebar from "./Sidebar";
 import AuroraBackground from "./aurora/AuroraBackground";
 import DisplayHeading from "./aurora/DisplayHeading";
 
-const NAV_ITEMS = [
-  { label: "Chat", href: "/chat", icon: <ChatOutlined /> },
-  { label: "Generate Image", href: "/generate-image", icon: <ImageOutlined /> },
-  { label: "Analytics", href: "/analytics", icon: <AnalyticsOutlined /> },
-];
-
-const CONVERSATIONS_CHANGED = "flux_ai:conversations-changed";
-
-interface ConversationSummary {
-  id: string;
-  title: string;
-  model: string;
-  updatedAt: string;
-  messageCount: number;
-}
+const SIDEBAR_WIDTH = 280;
+const SIDEBAR_PREF_KEY = "flux_ai:sidebar-open";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -64,10 +45,13 @@ interface AppShellProps {
 
 export default function AppShell({ children, rightSlot }: AppShellProps) {
   const router = useRouter();
-  const pathname = usePathname();
+  const theme = useTheme();
+  // The shell only renders after the client-side auth check, so reading the
+  // media query synchronously (noSsr) avoids a mobile-layout flash on desktop.
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
   const { user, hasConfig, isLoaded, logout } = useAuth();
-  const { newChat } = useChat();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -77,6 +61,16 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
     if (!user) router.replace("/login");
     else if (!hasConfig) router.replace("/config");
   }, [isLoaded, user, hasConfig, router]);
+
+  // Restore the desktop sidebar preference.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(SIDEBAR_PREF_KEY);
+      if (stored !== null) setDesktopOpen(stored === "1");
+    } catch {
+      /* storage unavailable: keep the default */
+    }
+  }, []);
 
   if (!isLoaded || !user || !hasConfig) {
     return (
@@ -88,23 +82,37 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           justifyContent: "center",
         }}
       >
-        <CircularProgress />
+        <CircularProgress aria-label="Loading" />
       </Box>
     );
   }
 
   const initial = user.name.trim().charAt(0).toUpperCase() || "U";
+  const sidebarVisible = isDesktop ? desktopOpen : mobileOpen;
+  const toggleLabel = isDesktop
+    ? desktopOpen
+      ? "Hide sidebar"
+      : "Show sidebar"
+    : "Open menu";
+
+  const toggleSidebar = () => {
+    if (!isDesktop) {
+      setMobileOpen(true);
+      return;
+    }
+    const next = !desktopOpen;
+    setDesktopOpen(next);
+    try {
+      window.localStorage.setItem(SIDEBAR_PREF_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
 
   const handleLogout = async () => {
     setMenuAnchor(null);
     await logout();
     router.replace("/login");
-  };
-
-  const handleNewChat = () => {
-    newChat();
-    setDrawerOpen(false);
-    router.push("/chat");
   };
 
   return (
@@ -119,7 +127,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
     >
       <AuroraBackground />
       <AppBar
-        position="sticky"
+        position="static"
         elevation={0}
         sx={{
           bgcolor: "var(--surface)",
@@ -127,13 +135,16 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <Toolbar sx={{ gap: 1.5 }}>
-          <IconButton
-            onClick={() => setDrawerOpen(true)}
-            sx={{ color: "text.primary" }}
-          >
-            <MenuIcon />
-          </IconButton>
+        <Toolbar sx={{ gap: { xs: 1, sm: 1.5 } }}>
+          <Tooltip title={toggleLabel}>
+            <IconButton
+              onClick={toggleSidebar}
+              aria-expanded={sidebarVisible}
+              sx={{ color: "text.primary" }}
+            >
+              {isDesktop && desktopOpen ? <MenuOpenOutlined /> : <MenuIcon />}
+            </IconButton>
+          </Tooltip>
 
           <Stack
             direction="row"
@@ -141,7 +152,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
             alignItems="center"
             component={Link}
             href="/chat"
-            sx={{ textDecoration: "none", color: "inherit" }}
+            aria-label="Flux AI home"
+            sx={{ textDecoration: "none", color: "inherit", borderRadius: 1 }}
           >
             <Box
               sx={{
@@ -158,6 +170,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
               <AutoAwesome sx={{ color: "#0c1006", fontSize: 18 }} />
             </Box>
             <DisplayHeading
+              component="span"
               sx={{
                 fontSize: 20,
                 display: { xs: "none", sm: "block" },
@@ -174,15 +187,21 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           <Tooltip title="Settings">
             <IconButton
               onClick={() => setSettingsOpen(true)}
-              sx={{ color: "text.primary" }}
+              sx={{
+                color: "text.primary",
+                // On phones Settings lives in the account menu to save room.
+                display: { xs: "none", sm: "inline-flex" },
+              }}
             >
               <SettingsOutlined />
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={user.name}>
+          <Tooltip title="Account">
             <IconButton
               onClick={(e) => setMenuAnchor(e.currentTarget)}
+              aria-haspopup="menu"
+              aria-expanded={!!menuAnchor}
               sx={{ p: 0.5 }}
             >
               <Avatar
@@ -208,15 +227,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         onClose={() => setMenuAnchor(null)}
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-        PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 240,
-            background: "rgba(18,23,15,0.96)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(161,161,170,0.12)",
-          },
-        }}
+        PaperProps={{ sx: { mt: 1, minWidth: 240, maxWidth: 300 } }}
       >
         <Box sx={{ px: 2, py: 1.5 }}>
           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -239,19 +250,14 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                 variant="caption"
                 color="text.secondary"
                 noWrap
-                sx={{
-                  display: "block",
-                  maxWidth: 160,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
+                sx={{ display: "block" }}
               >
                 {user.email}
               </Typography>
             </Box>
           </Stack>
         </Box>
-        <Divider sx={{ borderColor: "rgba(161,161,170,0.08)" }} />
+        <Divider sx={{ borderColor: "var(--border)" }} />
         <MenuItem
           onClick={() => {
             setSettingsOpen(true);
@@ -271,83 +277,67 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         </MenuItem>
       </Menu>
 
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        PaperProps={{
-          sx: {
-            width: 290,
-            background: "var(--surface-solid)",
-            backdropFilter: "blur(20px)",
-            borderRight: "1px solid var(--border)",
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<AddOutlined />}
-            onClick={handleNewChat}
-            sx={{ mb: 2 }}
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
+        {isDesktop ? (
+          <Box
+            component="nav"
+            aria-label="Sidebar"
+            sx={{
+              width: desktopOpen ? SIDEBAR_WIDTH : 0,
+              flexShrink: 0,
+              overflow: "hidden",
+              borderRight: "1px solid",
+              borderColor: desktopOpen ? "var(--border)" : "transparent",
+              bgcolor: "rgba(11,15,10,0.55)",
+              backdropFilter: "blur(20px)",
+              transition:
+                "width var(--dur-base) var(--ease-out), border-color var(--dur-base)",
+            }}
           >
-            New chat
-          </Button>
-          <List dense>
-            {NAV_ITEMS.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <ListItemButton
-                  key={item.href}
-                  component={Link}
-                  href={item.href}
-                  selected={active}
-                  onClick={() => setDrawerOpen(false)}
-                  sx={{
-                    borderRadius: 2,
-                    mb: 0.5,
-                    transition: "background var(--dur-fast) var(--ease-out)",
-                    "&.Mui-selected": {
-                      background: "rgba(118,185,0,0.14)",
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 36,
-                      color: active ? "primary.light" : "text.secondary",
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{ fontWeight: active ? 600 : 500 }}
-                  />
-                </ListItemButton>
-              );
-            })}
-          </List>
+            {/* Fixed inner width so content doesn't reflow while collapsing;
+                inert keeps the hidden links out of the tab order. */}
+            <Box
+              inert={!desktopOpen}
+              sx={{ width: SIDEBAR_WIDTH, height: "100%" }}
+            >
+              <Sidebar onNavigate={() => {}} />
+            </Box>
+          </Box>
+        ) : (
+          <Drawer
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            PaperProps={{
+              component: "nav",
+              "aria-label": "Sidebar",
+              sx: {
+                width: SIDEBAR_WIDTH,
+                maxWidth: "85vw",
+                background: "var(--surface-solid)",
+                borderRight: "1px solid var(--border)",
+              },
+            }}
+          >
+            <Sidebar onNavigate={() => setMobileOpen(false)} />
+          </Drawer>
+        )}
 
-          <Divider sx={{ my: 2, borderColor: "rgba(161,161,170,0.08)" }} />
-
-          <ConversationList onSelect={() => setDrawerOpen(false)} />
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            // Pages without their own scroller (analytics, generate-image)
+            // scroll here. Chat fills this exactly (its message list scrolls
+            // internally + pinned composer), so this never double-scrolls.
+            overflowY: "auto",
+          }}
+        >
+          {children}
         </Box>
-      </Drawer>
-
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-          // Pages without their own scroller (config, analytics, generate-image)
-          // scroll here. Chat fills this exactly (its message list scrolls
-          // internally + pinned composer), so this never double-scrolls.
-          overflowY: "auto",
-        }}
-      >
-        {children}
       </Box>
 
       <SettingsDialog
@@ -355,135 +345,5 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         onClose={() => setSettingsOpen(false)}
       />
     </Box>
-  );
-}
-
-function ConversationList({ onSelect }: { onSelect: () => void }) {
-  const router = useRouter();
-  const { loadConversation, conversationId, newChat } = useChat();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/conversations", { cache: "no-store" });
-      if (res.ok) {
-        const data = (await res.json()) as {
-          conversations: ConversationSummary[];
-        };
-        setConversations(data.conversations);
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const handler = () => void load();
-    window.addEventListener(CONVERSATIONS_CHANGED, handler);
-    return () => window.removeEventListener(CONVERSATIONS_CHANGED, handler);
-  }, [load]);
-
-  const handleOpen = async (id: string) => {
-    await loadConversation(id);
-    onSelect();
-    router.push("/chat");
-  };
-
-  const handleDelete = async (id: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    await fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch(
-      () => {},
-    );
-    if (id === conversationId) newChat();
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ textAlign: "center", py: 2 }}>
-        <CircularProgress size={18} />
-      </Box>
-    );
-  }
-
-  if (conversations.length === 0) {
-    return (
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: "block", textAlign: "center", py: 2 }}
-      >
-        No conversations yet
-      </Typography>
-    );
-  }
-
-  return (
-    <>
-      <Typography
-        variant="overline"
-        color="text.secondary"
-        sx={{ px: 1, fontWeight: 600, letterSpacing: "0.08em" }}
-      >
-        Recent
-      </Typography>
-      <List dense sx={{ mt: 0.5 }}>
-        <AnimatePresence initial={false}>
-          {conversations.map((c) => (
-            <motion.div
-              key={c.id}
-              layout
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              <ListItemButton
-                selected={c.id === conversationId}
-                onClick={() => void handleOpen(c.id)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.5,
-                  pr: 1,
-                  "&.Mui-selected": { background: "rgba(118,185,0,0.14)" },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
-                  <ChatOutlined fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={c.title}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    noWrap: true,
-                    sx: { overflow: "hidden", textOverflow: "ellipsis" },
-                  }}
-                  secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
-                  secondaryTypographyProps={{ fontSize: 11 }}
-                />
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => void handleDelete(c.id, e)}
-                    sx={{
-                      color: "text.secondary",
-                      opacity: 0.6,
-                      "&:hover": { opacity: 1, color: "error.main" },
-                    }}
-                  >
-                    <DeleteOutline sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </ListItemButton>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </List>
-    </>
   );
 }

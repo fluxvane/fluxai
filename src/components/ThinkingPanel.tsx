@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Box, Typography, Collapse } from "@mui/material";
+import React, { useEffect, useId, useRef, useState } from "react";
+import { Box, ButtonBase, Typography, Collapse } from "@mui/material";
 import {
   PsychologyOutlined,
   KeyboardArrowDownRounded,
@@ -21,6 +21,7 @@ export default function ThinkingPanel({
   const [expanded, setExpanded] = useState(true);
   const prevThinking = useRef(isThinking);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const bodyId = useId();
 
   // Auto-expand while thinking, auto-collapse once the thought completes.
   useEffect(() => {
@@ -62,17 +63,23 @@ export default function ThinkingPanel({
             : "none",
         }}
       >
-        <Box
+        <ButtonBase
           onClick={() => setExpanded((e) => !e)}
+          aria-expanded={expanded}
+          aria-controls={bodyId}
           sx={{
+            width: "100%",
             display: "flex",
             alignItems: "center",
+            justifyContent: "flex-start",
             gap: 1,
             px: 1.5,
             py: 1,
-            cursor: "pointer",
+            textAlign: "left",
             userSelect: "none",
-            "&:hover": { background: "rgba(161,161,170,0.04)" },
+            "&:hover, &.Mui-focusVisible": {
+              background: "rgba(161,161,170,0.06)",
+            },
           }}
         >
           <motion.div
@@ -117,11 +124,12 @@ export default function ThinkingPanel({
               sx={{ fontSize: 18, color: "text.secondary" }}
             />
           </motion.div>
-        </Box>
+        </ButtonBase>
 
         <Collapse in={expanded} timeout={250}>
           <Box
             ref={bodyRef}
+            id={bodyId}
             sx={{
               px: 1.75,
               pb: 1.5,

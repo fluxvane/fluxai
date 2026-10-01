@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   Box,
   Button,
+  ButtonBase,
   Popover,
   TextField,
   Typography,
@@ -23,6 +24,8 @@ interface ModelPickerProps {
   /** Optional filter to restrict which models are shown. */
   filter?: (m: ModelItem) => boolean;
   placeholder?: string;
+  /** Stretch the trigger to its container's width (e.g. form layouts). */
+  fullWidth?: boolean;
 }
 
 export default function ModelPicker({
@@ -30,8 +33,9 @@ export default function ModelPicker({
   onChange,
   filter,
   placeholder = "Select model",
+  fullWidth = false,
 }: ModelPickerProps) {
-  const { models, loading } = useModels();
+  const { models, loading, error } = useModels();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const open = Boolean(anchorEl);
@@ -64,6 +68,9 @@ export default function ModelPicker({
       <Button
         onClick={(e) => setAnchorEl(e.currentTarget)}
         disabled={loading}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Model: ${value || placeholder}`}
         startIcon={
           loading ? (
             <CircularProgress size={12} sx={{ color: "text.secondary" }} />
@@ -73,8 +80,10 @@ export default function ModelPicker({
                 width: 6,
                 height: 6,
                 borderRadius: "50%",
-                bgcolor: "success.main",
-                boxShadow: "0 0 8px rgba(34,197,94,0.6)",
+                bgcolor: error ? "warning.main" : "success.main",
+                boxShadow: error
+                  ? "0 0 8px rgba(245,158,11,0.6)"
+                  : "0 0 8px rgba(34,197,94,0.6)",
               }}
             />
           )
@@ -93,8 +102,10 @@ export default function ModelPicker({
           fontSize: 13,
           fontWeight: 500,
           textTransform: "none",
-          maxWidth: { xs: 150, sm: 260 },
+          maxWidth: fullWidth ? "none" : { xs: 150, sm: 260 },
+          width: fullWidth ? "100%" : undefined,
           justifyContent: "flex-start",
+          "& .MuiButton-endIcon": { ml: "auto" },
           "&:hover": { bgcolor: "rgba(161,161,170,0.14)" },
         }}
       >
@@ -103,7 +114,7 @@ export default function ModelPicker({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            maxWidth: { xs: 100, sm: 200 },
+            maxWidth: fullWidth ? "none" : { xs: 100, sm: 200 },
             fontFamily: "monospace",
           }}
         >
@@ -124,9 +135,9 @@ export default function ModelPicker({
               width: { xs: "calc(100vw - 32px)", sm: 380 },
               maxWidth: 380,
               maxHeight: 540,
-              background: "rgba(20,20,23,0.97)",
+              background: "var(--surface-solid)",
               backdropFilter: "blur(24px)",
-              border: "1px solid rgba(161,161,170,0.12)",
+              border: "1px solid var(--border)",
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
               borderRadius: 2.5,
               overflow: "hidden",
@@ -142,6 +153,16 @@ export default function ModelPicker({
             placeholder="Search models…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter picks the first match, so search → Enter is enough.
+              const first = grouped[0]?.[1][0];
+              if (e.key === "Enter" && first) {
+                e.preventDefault();
+                onChange(first.id);
+                close();
+              }
+            }}
+            inputProps={{ "aria-label": "Search models" }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -155,7 +176,11 @@ export default function ModelPicker({
           />
         </Box>
 
-        <Box sx={{ overflowY: "auto", maxHeight: 460 }}>
+        <Box
+          role="listbox"
+          aria-label="Models"
+          sx={{ overflowY: "auto", maxHeight: 460 }}
+        >
           {loading && (
             <Box sx={{ p: 4, textAlign: "center" }}>
               <CircularProgress size={20} />
@@ -165,10 +190,14 @@ export default function ModelPicker({
             <Box sx={{ p: 3, textAlign: "center" }}>
               <Typography
                 variant="body2"
-                color="text.secondary"
+                color={error ? "warning.main" : "text.secondary"}
                 sx={{ fontSize: 13 }}
               >
-                No models match &ldquo;{query}&rdquo;
+                {error
+                  ? `Couldn't load models from your proxy. ${error}`
+                  : query.trim()
+                    ? `No models match \u201c${query.trim()}\u201d`
+                    : "Your proxy didn't return any models."}
               </Typography>
             </Box>
           )}
@@ -181,7 +210,8 @@ export default function ModelPicker({
                     py: 1,
                     position: "sticky",
                     top: 0,
-                    background: "rgba(20,20,23,0.96)",
+                    background: "var(--surface-solid)",
+                    zIndex: 1,
                     backdropFilter: "blur(8px)",
                     borderBottom: "1px solid rgba(161,161,170,0.05)",
                   }}
@@ -205,13 +235,17 @@ export default function ModelPicker({
                 {items.map((m) => {
                   const selected = m.id === value;
                   return (
-                    <Box
+                    <ButtonBase
                       key={m.id}
+                      role="option"
+                      aria-selected={selected}
                       onClick={() => {
                         onChange(m.id);
                         close();
                       }}
                       sx={{
+                        width: "100%",
+                        textAlign: "left",
                         px: 2,
                         py: 0.85,
                         cursor: "pointer",
@@ -224,10 +258,10 @@ export default function ModelPicker({
                           : "transparent",
                         borderLeft: "2px solid",
                         borderColor: selected ? "primary.light" : "transparent",
-                        "&:hover": {
+                        "&:hover, &.Mui-focusVisible": {
                           background: selected
                             ? "rgba(118,185,0,0.15)"
-                            : "rgba(163,172,160,0.05)",
+                            : "rgba(163,172,160,0.08)",
                         },
                         transition: "background 0.1s",
                       }}
@@ -254,7 +288,7 @@ export default function ModelPicker({
                           }}
                         />
                       )}
-                    </Box>
+                    </ButtonBase>
                   );
                 })}
               </Box>
