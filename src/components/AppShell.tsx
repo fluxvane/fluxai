@@ -130,8 +130,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         position="static"
         elevation={0}
         sx={{
-          bgcolor: "var(--surface)",
-          backdropFilter: "blur(20px) saturate(180%)",
+          // Solid tint, no backdrop-filter: this bar spans the top over the
+          // animated particle canvas; blur() would re-composite it every frame.
+          bgcolor: "rgba(13,17,10,0.92)",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -288,8 +289,9 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
               overflow: "hidden",
               borderRight: "1px solid",
               borderColor: desktopOpen ? "var(--border)" : "transparent",
-              bgcolor: "rgba(11,15,10,0.55)",
-              backdropFilter: "blur(20px)",
+              // Solid tint for the same reason as the app bar (no blur over
+              // the animated canvas).
+              bgcolor: "rgba(13,17,10,0.88)",
               transition:
                 "width var(--dur-base) var(--ease-out), border-color var(--dur-base)",
             }}
@@ -313,7 +315,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
               sx: {
                 width: SIDEBAR_WIDTH,
                 maxWidth: "85vw",
-                background: "var(--surface-solid)",
+                background: "rgba(18,23,15,0.98)",
                 borderRight: "1px solid var(--border)",
               },
             }}

@@ -29,9 +29,8 @@ import {
   DeleteOutline,
   ImageOutlined,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
-import { useSnackbar } from "notistack";
 import { useChat, CONVERSATIONS_CHANGED } from "@/hooks/useChat";
+import { useErrorToast } from "@/hooks/useErrorToast";
 import { formatRelativeTime } from "@/lib/format";
 import type { ConversationSummary } from "@/types/chat";
 
@@ -122,7 +121,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
 function ConversationList({ onNavigate }: { onNavigate: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { enqueueSnackbar } = useSnackbar();
+  const { showError, toast } = useErrorToast();
   const { loadConversation, conversationId, newChat } = useChat();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,9 +155,7 @@ function ConversationList({ onNavigate }: { onNavigate: () => void }) {
     onNavigate();
     if (pathname !== "/chat") router.push("/chat");
     if (!(await loadConversation(id))) {
-      enqueueSnackbar("Couldn't open that conversation.", {
-        variant: "error",
-      });
+      showError("Couldn't open that conversation.");
     }
   };
 
@@ -172,9 +169,7 @@ function ConversationList({ onNavigate }: { onNavigate: () => void }) {
       method: "DELETE",
     }).catch(() => null);
     if (!res?.ok) {
-      enqueueSnackbar("Couldn't delete the conversation.", {
-        variant: "error",
-      });
+      showError("Couldn't delete the conversation.");
       void load();
     }
   };
@@ -209,68 +204,62 @@ function ConversationList({ onNavigate }: { onNavigate: () => void }) {
         </Typography>
       ) : (
         <List dense disablePadding sx={{ mt: 0.5 }}>
-          <AnimatePresence initial={false}>
-            {conversations.map((c) => (
-              <motion.div
-                key={c.id}
-                layout
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <ListItem
-                  disablePadding
-                  secondaryAction={
-                    <Tooltip title="Delete conversation">
-                      <IconButton
-                        className="flux-conv-delete"
-                        size="small"
-                        edge="end"
-                        onClick={() => setPendingDelete(c)}
-                        sx={{
-                          color: "text.secondary",
-                          "&:hover": { color: "error.main" },
-                        }}
-                      >
-                        <DeleteOutline sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                  sx={{
-                    mb: 0.5,
-                    // Reveal delete on hover/focus; always visible on touch.
-                    "& .flux-conv-delete": {
-                      opacity: 0,
-                      transition: "opacity var(--dur-fast)",
-                    },
-                    "&:hover .flux-conv-delete, &:focus-within .flux-conv-delete":
-                      { opacity: 1 },
-                    "@media (hover: none)": {
-                      "& .flux-conv-delete": { opacity: 0.7 },
-                    },
-                  }}
-                >
-                  <ListItemButton
-                    selected={pathname === "/chat" && c.id === conversationId}
-                    onClick={() => void handleOpen(c.id)}
-                    sx={{ borderRadius: 2, pr: 5, ...selectedSx }}
-                  >
-                    <ListItemText
-                      primary={c.title}
-                      primaryTypographyProps={{
-                        fontSize: 14,
-                        fontWeight: 500,
-                        noWrap: true,
+          {conversations.map((c) => (
+            <Box
+              key={c.id}
+              sx={{ animation: "flux-fade-up 0.22s var(--ease-out) both" }}
+            >
+              <ListItem
+                disablePadding
+                secondaryAction={
+                  <Tooltip title="Delete conversation">
+                    <IconButton
+                      className="flux-conv-delete"
+                      size="small"
+                      edge="end"
+                      onClick={() => setPendingDelete(c)}
+                      sx={{
+                        color: "text.secondary",
+                        "&:hover": { color: "error.main" },
                       }}
-                      secondary={`${formatRelativeTime(c.updatedAt)} · ${c.messageCount} msg${c.messageCount === 1 ? "" : "s"}`}
-                      secondaryTypographyProps={{ fontSize: 11, noWrap: true }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                    >
+                      <DeleteOutline sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                }
+                sx={{
+                  mb: 0.5,
+                  // Reveal delete on hover/focus; always visible on touch.
+                  "& .flux-conv-delete": {
+                    opacity: 0,
+                    transition: "opacity var(--dur-fast)",
+                  },
+                  "&:hover .flux-conv-delete, &:focus-within .flux-conv-delete":
+                    { opacity: 1 },
+                  "@media (hover: none)": {
+                    "& .flux-conv-delete": { opacity: 0.7 },
+                  },
+                }}
+              >
+                <ListItemButton
+                  selected={pathname === "/chat" && c.id === conversationId}
+                  onClick={() => void handleOpen(c.id)}
+                  sx={{ borderRadius: 2, pr: 5, ...selectedSx }}
+                >
+                  <ListItemText
+                    primary={c.title}
+                    primaryTypographyProps={{
+                      fontSize: 14,
+                      fontWeight: 500,
+                      noWrap: true,
+                    }}
+                    secondary={`${formatRelativeTime(c.updatedAt)} · ${c.messageCount} msg${c.messageCount === 1 ? "" : "s"}`}
+                    secondaryTypographyProps={{ fontSize: 11, noWrap: true }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </Box>
+          ))}
         </List>
       )}
 
@@ -308,6 +297,7 @@ function ConversationList({ onNavigate }: { onNavigate: () => void }) {
           </Button>
         </DialogActions>
       </Dialog>
+      {toast}
     </Box>
   );
 }

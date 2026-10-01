@@ -13,10 +13,12 @@ export default function GlassPanel({ hover, sx, ...rest }: GlassPanelProps) {
     <Box
       {...rest}
       sx={{
-        background: "var(--surface)",
+        // Near-opaque tint rather than backdrop-filter: on a dark theme this
+        // reads as the same frosted surface, but avoids the per-frame re-blur
+        // cost when the panel overlays the animated particle background.
+        background: "rgba(22,28,17,0.86)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-panel)",
-        backdropFilter: "blur(14px)",
         boxShadow: "var(--shadow-card)",
         transition:
           "transform var(--dur-base) var(--ease-out), border-color var(--dur-fast) var(--ease-out)",
@@ -27,9 +29,6 @@ export default function GlassPanel({ hover, sx, ...rest }: GlassPanelProps) {
             borderColor: "var(--border-strong)",
           },
         }),
-        "@supports not (backdrop-filter: blur(1px))": {
-          background: "var(--surface-solid)",
-        },
         ...sx,
       }}
     />
