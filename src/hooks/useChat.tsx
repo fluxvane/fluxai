@@ -24,12 +24,14 @@ export interface UseChatValue {
   regenerate: () => Promise<void>;
   abort: () => void;
   newChat: () => void;
-  loadConversation: (id: string) => Promise<void>;
+  /** Resolves false when the conversation could not be loaded. */
+  loadConversation: (id: string) => Promise<boolean>;
 }
 
 const ChatContext = createContext<UseChatValue | undefined>(undefined);
 
-const CONVERSATIONS_CHANGED = "flux_ai:conversations-changed";
+/** Window event fired whenever the server-side conversation list changes. */
+export const CONVERSATIONS_CHANGED = "flux_ai:conversations-changed";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -137,37 +139,44 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const runStream = useCallback(
     async (
       history: ChatMessage[],
-      assistantId: string,
-      usedModel: string,
+      assistant: ChatMessage,
       convId: string | null,
+      controller: AbortController,
     ) => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setIsStreaming(true);
+      // Stopped before the request even began (e.g. while the conversation
+      // was being created): let the fetch fail fast without re-claiming state.
+      if (!controller.signal.aborted) {
+        abortRef.current = controller;
+        setIsStreaming(true);
+      }
       setError(null);
 
       let rawContent = "";
       let rawReasoning = "";
       let promptTokens: number | undefined;
       let completionTokens: number | undefined;
+      // Latest snapshot of the reply, tracked locally rather than read back
+      // from state: what gets persisted must not depend on render timing or on
+      // which conversation is on screen by the time the stream settles.
+      let reply = assistant;
+
+      const updateReply = (patch: Partial<ChatMessage>) => {
+        reply = { ...reply, ...patch };
+        const next = reply;
+        setMessages((prev) => prev.map((m) => (m.id === next.id ? next : m)));
+      };
 
       const applyDelta = () => {
         const { answer, think } = splitThink(rawContent);
         const reasoning = (rawReasoning + (think ? `\n${think}` : "")).trim();
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId
-              ? { ...m, content: answer, reasoning: reasoning || undefined }
-              : m,
-          ),
-        );
+        updateReply({ content: answer, reasoning: reasoning || undefined });
       };
 
       try {
         const response = await fetch("/api/proxy/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(buildRequest(history, usedModel)),
+          body: JSON.stringify(buildRequest(history, assistant.model ?? model)),
           signal: controller.signal,
         });
 
@@ -217,23 +226,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Finalize token counts on the assistant message.
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId ? { ...m, promptTokens, completionTokens } : m,
-          ),
-        );
+        if (!rawContent && !rawReasoning) {
+          throw new Error("The model returned an empty response.");
+        }
+        updateReply({ promptTokens, completionTokens });
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
           setError(err instanceof Error ? err.message : "Request failed");
         }
       } finally {
-        abortRef.current = null;
-        setIsStreaming(false);
-        if (convId) void persist(convId, messagesRef.current);
+        // Drop a reply that never produced anything rather than leaving an
+        // empty bubble behind; the user turn stays so it can be retried.
+        const empty = !reply.content && !reply.reasoning;
+        if (empty) {
+          setMessages((prev) => prev.filter((m) => m.id !== reply.id));
+        }
+        // A newer stream may have taken over (stop → send quickly); only the
+        // owner of the controller may clear the streaming state.
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsStreaming(false);
+        }
+        if (convId) void persist(convId, empty ? history : [...history, reply]);
       }
     },
-    [persist],
+    [persist, model],
   );
 
   const send = useCallback(
@@ -247,9 +264,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         content: content.trim(),
         createdAt: new Date().toISOString(),
       };
-      const assistantId = newId();
       const assistantMessage: ChatMessage = {
-        id: assistantId,
+        id: newId(),
         role: "assistant",
         content: "",
         createdAt: new Date().toISOString(),
@@ -259,8 +275,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const history = [...messagesRef.current, userMessage];
       setMessages([...history, assistantMessage]);
 
+      // Claim the stream before the conversation round-trip so "Stop" works
+      // (and the UI shows the pending state) from the very first moment.
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setIsStreaming(true);
+      setError(null);
+
       const convId = await ensureConversation(userMessage.content, usedModel);
-      await runStream(history, assistantId, usedModel, convId);
+      await runStream(history, assistantMessage, convId, controller);
     },
     [hasConfig, isStreaming, model, ensureConversation, runStream],
   );
@@ -277,19 +300,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (lastUserIdx === -1) return;
-    const userMessage = current[lastUserIdx];
     const history = current.slice(0, lastUserIdx + 1);
-    const assistantId = newId();
     const assistantMessage: ChatMessage = {
-      id: assistantId,
+      id: newId(),
       role: "assistant",
       content: "",
       createdAt: new Date().toISOString(),
       model,
     };
     setMessages([...history, assistantMessage]);
-    await runStream(history, assistantId, model, conversationId);
-    void userMessage;
+    await runStream(
+      history,
+      assistantMessage,
+      conversationId,
+      new AbortController(),
+    );
   }, [isStreaming, model, conversationId, runStream]);
 
   const loadConversation = useCallback(
@@ -299,7 +324,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch(`/api/conversations/${id}`, {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const data = (await res.json()) as {
           conversation: { id: string; model: string; messages: ChatMessage[] };
         };
@@ -307,8 +332,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setModel(data.conversation.model || model);
         setMessages(data.conversation.messages);
         setError(null);
+        return true;
       } catch {
-        /* ignore */
+        return false;
       }
     },
     [abort, model],

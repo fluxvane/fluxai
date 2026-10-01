@@ -30,14 +30,13 @@ export interface ModelsResponse {
   data: ModelInfo[];
 }
 
+/** Shape returned by GET /api/conversations. */
 export interface ConversationSummary {
   id: string;
   title: string;
-  createdAt: string;
+  model: string;
   updatedAt: string;
   messageCount: number;
-  model: string;
-  preview: string;
 }
 
 export interface AnalyticsBucket {
