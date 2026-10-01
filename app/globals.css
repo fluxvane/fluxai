@@ -433,7 +433,7 @@
 
 .login-field__input:-webkit-autofill {
   -webkit-text-fill-color: var(--login-text);
-  -webkit-box-shadow: 0 0 0 1000px #1f1f24 inset;
+  -webkit-box-shadow: 0 0 0 1000px #141a10 inset;
   caret-color: var(--login-text);
 }
 

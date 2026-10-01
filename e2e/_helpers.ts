@@ -13,8 +13,8 @@ export async function signUp(page: Page, email = E2E.email) {
   await clearSession(page);
   await page.goto("/login", { waitUntil: "domcontentloaded" });
 
-  // Switch to the Register tab.
-  await page.getByRole("button", { name: "Register", exact: true }).click();
+  // Switch to the "Create account" tab.
+  await page.getByRole("tab", { name: "Create account" }).click();
   await page.getByLabel("Your name").fill(E2E.name);
   await page.getByLabel("Email").fill(email);
   await page.locator('input[name="password"]').fill(E2E.password);
