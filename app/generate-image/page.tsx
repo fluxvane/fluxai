@@ -37,6 +37,16 @@ interface GeneratedImage {
 
 const SIZES = ["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"];
 
+const GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: {
+    xs: "repeat(2, 1fr)",
+    sm: "repeat(3, 1fr)",
+    md: "repeat(4, 1fr)",
+  },
+  gap: 2,
+} as const;
+
 async function fetchGallery(): Promise<GeneratedImage[]> {
   const res = await fetch("/api/images", { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load gallery");
@@ -52,7 +62,12 @@ export default function GenerateImagePage() {
   const [n, setN] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: gallery = [] } = useQuery({
+  const {
+    data: gallery = [],
+    isLoading: galleryLoading,
+    isError: galleryError,
+    refetch: refetchGallery,
+  } = useQuery({
     queryKey: ["images"],
     queryFn: fetchGallery,
   });
@@ -64,7 +79,7 @@ export default function GenerateImagePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model, size, n }),
       });
-      const data = (await res.json()) as {
+      const data = (await res.json().catch(() => ({}))) as {
         images?: GeneratedImage[];
         error?: string;
       };
@@ -118,7 +133,15 @@ export default function GenerateImagePage() {
           <TextField
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
             placeholder="A serene mountain lake at dawn, volumetric light, ultra detailed…"
+            inputProps={{ "aria-label": "Image prompt" }}
+            helperText="Ctrl/⌘ + Enter to generate"
             fullWidth
             multiline
             minRows={2}
@@ -127,11 +150,10 @@ export default function GenerateImagePage() {
           />
           <Stack
             direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
-            alignItems={{ sm: "center" }}
+            alignItems={{ xs: "stretch", sm: "flex-end" }}
             sx={{ flexWrap: "wrap", gap: 1.5 }}
           >
-            <Box>
+            <Box sx={{ minWidth: { sm: 220 } }}>
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -143,6 +165,7 @@ export default function GenerateImagePage() {
                 value={model}
                 onChange={setModel}
                 placeholder="Select image model"
+                fullWidth
               />
             </Box>
             <TextField
@@ -161,7 +184,7 @@ export default function GenerateImagePage() {
             </TextField>
             <TextField
               select
-              label="Count"
+              label="Images"
               size="small"
               value={n}
               onChange={(e) => setN(Number(e.target.value))}
@@ -181,7 +204,7 @@ export default function GenerateImagePage() {
               disabled={mutation.isPending}
               startIcon={
                 mutation.isPending ? (
-                  <CircularProgress size={16} sx={{ color: "white" }} />
+                  <CircularProgress size={16} color="inherit" />
                 ) : (
                   <AutoAwesome />
                 )
@@ -205,12 +228,9 @@ export default function GenerateImagePage() {
 
         {mutation.isPending && (
           <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
-              gap: 2,
-              mb: 4,
-            }}
+            role="status"
+            aria-label="Generating images"
+            sx={{ ...GRID_SX, mb: 4 }}
           >
             {Array.from({ length: n }).map((_, i) => (
               <GlassPanel
@@ -227,7 +247,31 @@ export default function GenerateImagePage() {
           </Box>
         )}
 
-        <Gallery images={gallery} />
+        {galleryLoading ? (
+          <Box sx={GRID_SX} aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <GlassPanel key={i} sx={{ aspectRatio: "1", opacity: 0.5 }} />
+            ))}
+          </Box>
+        ) : galleryError ? (
+          <Alert
+            severity="warning"
+            sx={{ borderRadius: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void refetchGallery()}
+              >
+                Retry
+              </Button>
+            }
+          >
+            Couldn&apos;t load your gallery.
+          </Alert>
+        ) : (
+          <Gallery images={gallery} />
+        )}
       </Box>
     </AppShell>
   );
@@ -250,13 +294,7 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
       <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
         Gallery
       </Typography>
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 2,
-        }}
-      >
+      <Box sx={GRID_SX}>
         {images.map((img, i) => (
           <Box
             key={img.id}
@@ -266,12 +304,17 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
             }}
           >
             <GlassPanel
-              hover
+              component="figure"
               sx={{
                 overflow: "hidden",
                 p: 0,
+                m: 0,
                 position: "relative",
-                "&:hover .flux-overlay": { opacity: 1 },
+                "&:hover .flux-overlay, &:focus-within .flux-overlay": {
+                  opacity: 1,
+                },
+                // No hover on touch screens: keep the details visible.
+                "@media (hover: none)": { "& .flux-overlay": { opacity: 1 } },
                 "& img": {
                   transition: "transform var(--dur-base) var(--ease-out)",
                 },
@@ -283,6 +326,7 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                 <img
                   src={img.src}
                   alt={img.prompt}
+                  loading="lazy"
                   style={{
                     width: "100%",
                     aspectRatio: "1",
@@ -304,6 +348,7 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                 </Box>
               )}
               <Box
+                component="figcaption"
                 className="flux-overlay"
                 sx={{
                   position: "absolute",
@@ -339,10 +384,11 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                     {img.prompt}
                   </Typography>
                   {img.src && (
-                    <Tooltip title="Download">
+                    <Tooltip title="Download image">
                       <IconButton
                         size="small"
                         component="a"
+                        rel="noopener noreferrer"
                         href={img.src}
                         download={`flux-${img.id}.png`}
                         target="_blank"

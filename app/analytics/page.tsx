@@ -1,7 +1,15 @@
 "use client";
 
 import React from "react";
-import { Box, Stack, Typography, Chip, CircularProgress } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Stack,
+  Typography,
+  Chip,
+  CircularProgress,
+} from "@mui/material";
 import {
   AutoAwesome,
   ChatOutlined,
@@ -26,6 +34,7 @@ const DailyChart = dynamic(() => import("@/components/analytics/DailyChart"), {
     </Box>
   ),
 });
+import { formatCount } from "@/lib/format";
 
 interface AnalyticsData {
   totals: {
@@ -48,7 +57,7 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
 }
 
 export default function AnalyticsPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["analytics"],
     queryFn: fetchAnalytics,
     staleTime: 30_000,
@@ -79,10 +88,26 @@ export default function AnalyticsPage() {
           </Typography>
         </Stack>
 
-        {isLoading || !data ? (
+        {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-            <CircularProgress />
+            <CircularProgress aria-label="Loading analytics" />
           </Box>
+        ) : isError || !data ? (
+          <Alert
+            severity="warning"
+            sx={{ borderRadius: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void refetch()}
+              >
+                Retry
+              </Button>
+            }
+          >
+            Couldn&apos;t load your analytics.
+          </Alert>
         ) : (
           <Content data={data} />
         )}
@@ -94,14 +119,26 @@ export default function AnalyticsPage() {
 function Content({ data }: { data: AnalyticsData }) {
   const { totals, modelUsage, daily } = data;
   const totalTokens = totals.promptTokens + totals.completionTokens;
-  const maxDay = Math.max(1, ...daily.map((d) => d.count));
-  const chartData = daily.map((d) => ({
-    label: new Date(`${d.date}T00:00:00`).toLocaleDateString(undefined, {
-      weekday: "short",
-    }),
-    date: d.date,
-    count: d.count,
-  }));
+  const peak = daily.reduce<{ date: string; count: number } | null>(
+    (best, d) => (d.count > (best?.count ?? 0) ? d : best),
+    null,
+  );
+  const periodTotal = daily.reduce((sum, d) => sum + d.count, 0);
+  const chartData = daily.map((d) => {
+    const day = new Date(`${d.date}T00:00:00`);
+    return {
+      // 14 bars: weekday names would repeat, so the axis shows day-of-month
+      // and the tooltip spells out the full date.
+      label: String(day.getDate()),
+      fullDate: day.toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+      date: d.date,
+      count: d.count,
+    };
+  });
 
   const cards = [
     {
@@ -113,7 +150,7 @@ function Content({ data }: { data: AnalyticsData }) {
       icon: <AutoAwesome />,
       label: "Messages",
       value: totals.messages,
-      subtitle: `${totals.userMessages} from you`,
+      subtitle: `${formatCount(totals.userMessages)} from you`,
     },
     {
       icon: <BoltOutlined />,
@@ -128,7 +165,12 @@ function Content({ data }: { data: AnalyticsData }) {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
+          // minmax(0, 1fr): plain 1fr won't shrink below the cards' content
+          // width, which pushed the right column off-screen on phones.
+          gridTemplateColumns: {
+            xs: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, minmax(0, 1fr))",
+          },
           gap: 2,
           mb: 2,
         }}
@@ -160,24 +202,34 @@ function Content({ data }: { data: AnalyticsData }) {
           <Typography variant="caption" sx={{ color: "var(--text-soft)" }}>
             Messages per day
           </Typography>
-          <Box sx={{ height: 220, mt: 2 }}>
+          <Box
+            role="img"
+            aria-label={`Messages per day over the last 14 days: ${chartData.map((d) => `${d.fullDate}: ${d.count}`).join(", ")}`}
+            sx={{ height: 220, mt: 2 }}
+          >
             <DailyChart data={chartData} />
           </Box>
           <Typography
             variant="caption"
             sx={{ display: "block", mt: 1, color: "var(--text-soft)" }}
           >
-            Peak day: {maxDay} message{maxDay === 1 ? "" : "s"}
+            {peak
+              ? `${formatCount(periodTotal)} message${periodTotal === 1 ? "" : "s"} · busiest day ${chartData.find((d) => d.date === peak.date)?.fullDate} (${peak.count})`
+              : "No messages yet. Start a chat to see activity here."}
           </Typography>
         </GlassPanel>
 
         <Stack spacing={2}>
-          <StatCard
-            icon={<TokenOutlined />}
-            label="Tokens used"
-            value={totalTokens}
-            subtitle={`${totals.promptTokens} in · ${totals.completionTokens} out`}
-          />
+          {/* Plain wrapper: StatCard's height:100% would otherwise stretch it
+              to the full row height inside this flex column. */}
+          <Box>
+            <StatCard
+              icon={<TokenOutlined />}
+              label="Tokens used"
+              value={totalTokens}
+              subtitle={`${formatCount(totals.promptTokens)} in · ${formatCount(totals.completionTokens)} out`}
+            />
+          </Box>
           <GlassPanel sx={{ p: 3, flex: 1 }}>
             <Stack
               direction="row"
@@ -253,8 +305,14 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <GlassPanel sx={{ p: 3, height: "100%" }}>
-      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 1.5 }}>
+    <GlassPanel sx={{ p: { xs: 2, sm: 3 }, height: "100%", minWidth: 0 }}>
+      {/* Icon above the label on phones, beside it from sm up. */}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.2}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        sx={{ mb: 1.5, minWidth: 0 }}
+      >
         <Box
           sx={{
             width: 32,
@@ -266,6 +324,7 @@ function StatCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            flexShrink: 0,
             color: "var(--accent-2)",
           }}
         >
@@ -273,17 +332,21 @@ function StatCard({
         </Box>
         <Typography
           variant="caption"
+          noWrap
           sx={{
             color: "var(--text-soft)",
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.05em",
+            maxWidth: "100%",
           }}
         >
           {label}
         </Typography>
       </Stack>
-      <DisplayHeading variant="h4">{value.toLocaleString()}</DisplayHeading>
+      <DisplayHeading variant="h4" component="p">
+        {formatCount(value)}
+      </DisplayHeading>
       {subtitle && (
         <Typography
           variant="caption"

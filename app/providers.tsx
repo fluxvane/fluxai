@@ -108,6 +108,26 @@ const theme = createTheme({
             transitionDuration: "0.001ms !important",
           },
         },
+        // Keyboard focus ring for native links/buttons (login page, markdown
+        // links). Zero-specificity :where() so MUI's own ButtonBase focus
+        // styling still wins on MUI components.
+        ":where(a, button):focus-visible": {
+          outline: "2px solid #a3e635",
+          outlineOffset: 2,
+        },
+        // Blinking caret at the end of a streaming answer.
+        ".flux-markdown.is-streaming > :last-child:not(ul):not(ol)::after, .flux-markdown.is-streaming > :is(ul, ol):last-child > li:last-child::after":
+          {
+            content: '""',
+            display: "inline-block",
+            width: "0.5em",
+            height: "1.05em",
+            marginLeft: "0.2em",
+            verticalAlign: "-0.16em",
+            borderRadius: 2,
+            background: "linear-gradient(180deg, #a3e635 0%, #76b900 100%)",
+            animation: "flux-blink 1.05s steps(2) infinite",
+          },
         // Tighten markdown rendering inside chat bubbles.
         ".flux-markdown p": { margin: "0 0 0.75em" },
         ".flux-markdown p:last-child": { marginBottom: 0 },

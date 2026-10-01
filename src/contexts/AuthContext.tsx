@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       setUser(data.user as AuthUser);
       setHasConfig(Boolean(data.hasConfig));
+      setConfig((data.config as ConfigSummary | null) ?? null);
       return { ok: true, hasConfig: Boolean(data.hasConfig) };
     },
     [],
@@ -124,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       setUser(data.user as AuthUser);
       setHasConfig(false);
+      setConfig(null);
       return { ok: true, hasConfig: false };
     },
     [],

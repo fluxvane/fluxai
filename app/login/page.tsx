@@ -9,7 +9,7 @@ type Mode = "signin" | "register";
 const FEATURE_PILLS = [
   { label: "Streaming", icon: "✦" },
   { label: "Any OpenAI-compatible proxy", icon: "✺" },
-  { label: "Zero backend", icon: "◉" },
+  { label: "Image studio", icon: "◉" },
 ];
 
 export default function LoginPage() {
@@ -106,8 +106,8 @@ export default function LoginPage() {
             }}
           >
             Connect your OpenAI-compatible endpoint, drop in an API key, and
-            start chatting with 200+ models — from Gemini and GPT to Claude and
-            beyond. Your keys stay in your browser.
+            start chatting with any model it serves. Your key is stored
+            server-side and never sent back to the browser.
           </p>
 
           <ul
@@ -179,7 +179,7 @@ export default function LoginPage() {
             <p className="login-card__hint">
               {mode === "signin"
                 ? "Sign in with the email and password you used to register."
-                : "Your credentials are stored locally in your browser. Nothing is sent to a server."}
+                : "Create an account to keep your conversations, images, and proxy settings in one place."}
             </p>
 
             {error && (
@@ -221,6 +221,7 @@ export default function LoginPage() {
                     </span>
                     <input
                       id="auth-name"
+                      name="name"
                       type="text"
                       className="login-field__input"
                       placeholder="Ada Lovelace"
@@ -255,6 +256,7 @@ export default function LoginPage() {
                   </span>
                   <input
                     id="auth-email"
+                    name="email"
                     type="email"
                     className="login-field__input"
                     placeholder="you@example.com"
@@ -289,6 +291,7 @@ export default function LoginPage() {
                   </span>
                   <input
                     id="auth-password"
+                    name="password"
                     type={showPw ? "text" : "password"}
                     className="login-field__input"
                     placeholder={
@@ -300,6 +303,7 @@ export default function LoginPage() {
                       mode === "signin" ? "current-password" : "new-password"
                     }
                     required
+                    minLength={mode === "register" ? 8 : undefined}
                   />
                   <button
                     type="button"
@@ -346,6 +350,7 @@ export default function LoginPage() {
                 type="submit"
                 className="login-submit"
                 disabled={busy || !ready}
+                aria-busy={busy}
               >
                 <span className="login-submit__shine" aria-hidden />
                 <span className="login-submit__label">
