@@ -165,7 +165,12 @@ function Content({ data }: { data: AnalyticsData }) {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
+          // minmax(0, 1fr): plain 1fr won't shrink below the cards' content
+          // width, which pushed the right column off-screen on phones.
+          gridTemplateColumns: {
+            xs: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, minmax(0, 1fr))",
+          },
           gap: 2,
           mb: 2,
         }}
@@ -210,7 +215,7 @@ function Content({ data }: { data: AnalyticsData }) {
           >
             {peak
               ? `${formatCount(periodTotal)} message${periodTotal === 1 ? "" : "s"} · busiest day ${chartData.find((d) => d.date === peak.date)?.fullDate} (${peak.count})`
-              : "No messages in the last 14 days."}
+              : "No messages yet. Start a chat to see activity here."}
           </Typography>
         </GlassPanel>
 
@@ -300,8 +305,14 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <GlassPanel sx={{ p: 3, height: "100%" }}>
-      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 1.5 }}>
+    <GlassPanel sx={{ p: { xs: 2, sm: 3 }, height: "100%", minWidth: 0 }}>
+      {/* Icon above the label on phones, beside it from sm up. */}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.2}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        sx={{ mb: 1.5, minWidth: 0 }}
+      >
         <Box
           sx={{
             width: 32,
@@ -313,6 +324,7 @@ function StatCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            flexShrink: 0,
             color: "var(--accent-2)",
           }}
         >
@@ -320,11 +332,13 @@ function StatCard({
         </Box>
         <Typography
           variant="caption"
+          noWrap
           sx={{
             color: "var(--text-soft)",
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.05em",
+            maxWidth: "100%",
           }}
         >
           {label}
