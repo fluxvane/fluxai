@@ -9,7 +9,7 @@ type Mode = "signin" | "register";
 const FEATURE_PILLS = [
   { label: "Streaming", icon: "✦" },
   { label: "Any OpenAI-compatible proxy", icon: "✺" },
-  { label: "Zero backend", icon: "◉" },
+  { label: "Encrypted key storage", icon: "◉" },
 ];
 
 export default function LoginPage() {
@@ -107,7 +107,8 @@ export default function LoginPage() {
           >
             Connect your OpenAI-compatible endpoint, drop in an API key, and
             start chatting with 200+ models — from Gemini and GPT to Claude and
-            beyond. Your keys stay in your browser.
+            beyond. Your key is stored encrypted on this server and never
+            leaves it except to call your endpoint.
           </p>
 
           <ul
@@ -179,7 +180,7 @@ export default function LoginPage() {
             <p className="login-card__hint">
               {mode === "signin"
                 ? "Sign in with the email and password you used to register."
-                : "Your credentials are stored locally in your browser. Nothing is sent to a server."}
+                : "Your account lives on this server — passwords are hashed and your proxy key is stored encrypted."}
             </p>
 
             {error && (

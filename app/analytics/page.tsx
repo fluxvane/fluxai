@@ -48,7 +48,7 @@ async function fetchAnalytics(): Promise<AnalyticsData> {
 }
 
 export default function AnalyticsPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["analytics"],
     queryFn: fetchAnalytics,
     staleTime: 30_000,
@@ -79,10 +79,16 @@ export default function AnalyticsPage() {
           </Typography>
         </Stack>
 
-        {isLoading || !data ? (
+        {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
             <CircularProgress />
           </Box>
+        ) : error || !data ? (
+          <GlassPanel sx={{ p: 4, textAlign: "center" }}>
+            <Typography variant="body2" sx={{ color: "var(--text-soft)" }}>
+              Couldn&apos;t load analytics. Check your connection and refresh.
+            </Typography>
+          </GlassPanel>
         ) : (
           <Content data={data} />
         )}
