@@ -1,6 +1,6 @@
 import { promises as dns } from "node:dns";
-import type { LookupAddress, LookupOptions } from "node:dns";
-import { isIP } from "node:net";
+import type { LookupAddress } from "node:dns";
+import { isIP, type LookupFunction } from "node:net";
 import { Agent, type Dispatcher } from "undici";
 
 /**
@@ -187,32 +187,23 @@ export function validateProxyPath(path: string[]): string | null {
  * Usage: `fetch(url, { ...init, dispatcher: ssrfDispatcher() })`.
  */
 export function ssrfDispatcher(): Dispatcher {
-  const lookup = (
-    hostname: string,
-    options: LookupOptions,
-    callback: (
-      err: NodeJS.ErrnoException | null,
-      address?: unknown,
-      family?: number,
-    ) => void,
-  ): void => {
+  const lookup: LookupFunction = (hostname, options, callback) => {
     const host = hostname.toLowerCase();
     try {
       assertAllowedHostname(host);
     } catch (err) {
-      callback(err as NodeJS.ErrnoException);
+      callback(err as NodeJS.ErrnoException, "");
       return;
     }
     dns.lookup(hostname, { ...options, all: true }).then(
       (addresses) => {
-        const safe = (addresses as LookupAddress[]).filter(
-          (a) => !isBlockedIp(a.address),
-        );
+        const safe = addresses.filter((a) => !isBlockedIp(a.address));
         if (safe.length === 0) {
           callback(
             new EndpointError(
               `Host "${host}" resolves only to private or reserved addresses.`,
             ),
+            "",
           );
           return;
         }
@@ -222,7 +213,7 @@ export function ssrfDispatcher(): Dispatcher {
           callback(null, safe[0].address, safe[0].family);
         }
       },
-      (err: NodeJS.ErrnoException) => callback(err),
+      (err: NodeJS.ErrnoException) => callback(err, ""),
     );
   };
   return new Agent({ connect: { lookup } });
