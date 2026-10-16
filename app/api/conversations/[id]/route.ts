@@ -20,6 +20,14 @@ interface SyncBody {
   messages?: IncomingMessage[];
 }
 
+// Persisted roles replay verbatim into upstream chat history — anything else
+// is junk or an injection vector. Content is capped so the sync endpoint
+// can't be used as a large-object store.
+const VALID_ROLES = new Set(["user", "assistant", "system"]);
+const MAX_MESSAGES = 500;
+const MAX_CONTENT_CHARS = 64_000;
+const MAX_REASONING_CHARS = 256_000;
+
 async function ownConversation(userId: string, id: string) {
   const conv = await prisma.conversation.findUnique({
     where: { id },
@@ -90,9 +98,15 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
 
   const body = (await req.json().catch(() => ({}))) as SyncBody;
-  const messages = Array.isArray(body.messages)
-    ? body.messages.slice(0, 500)
-    : [];
+  const messages = (Array.isArray(body.messages) ? body.messages : [])
+    .filter(
+      (m): m is IncomingMessage & { role: string; content: string } =>
+        m != null &&
+        typeof m === "object" &&
+        VALID_ROLES.has(m.role) &&
+        typeof m.content === "string",
+    )
+    .slice(0, MAX_MESSAGES);
 
   const data: { title?: string } = {};
   if (body.title?.trim()) data.title = body.title.trim().slice(0, 120);
@@ -103,9 +117,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       data: messages.map((m) => ({
         conversationId: id,
         role: m.role,
-        content: m.content,
-        reasoning: m.reasoning ?? null,
-        model: m.model ?? null,
+        content: m.content.slice(0, MAX_CONTENT_CHARS),
+        reasoning: m.reasoning?.slice(0, MAX_REASONING_CHARS) ?? null,
+        model: m.model?.slice(0, 200) ?? null,
         promptTokens: m.promptTokens ?? null,
         completionTokens: m.completionTokens ?? null,
       })),
