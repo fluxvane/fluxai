@@ -45,12 +45,15 @@ export function encryptApiKey(plain: string): string {
   ].join(".");
 }
 
+// `v1.` + 12-byte IV (16 b64url chars) + 16-byte GCM tag (22 chars) +
+// ciphertext — the exact shape encryptApiKey produces. A legacy plaintext
+// key that merely starts with "v1." must NOT be treated as ciphertext:
+// decrypting it would throw and wedge that account's config/proxy calls.
+const CIPHERTEXT_RE = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]+$/;
+
 export function decryptApiKey(stored: string): string {
-  if (!stored.startsWith(`${PREFIX}.`)) return stored; // legacy plaintext row
+  if (!CIPHERTEXT_RE.test(stored)) return stored; // legacy plaintext row
   const [, ivB64, tagB64, ctB64] = stored.split(".");
-  if (!ivB64 || !tagB64 || !ctB64) {
-    throw new Error("Stored API key is malformed.");
-  }
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     dataKey(),

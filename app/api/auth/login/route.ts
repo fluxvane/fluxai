@@ -33,12 +33,18 @@ function tooManyRequests(retryAfter: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(
-    `login-ip:${clientIp(req)}`,
-    IP_LIMIT.requests,
-    IP_LIMIT.windowMs,
-  );
-  if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  // Per-IP limit only when a trusted proxy gives us a real client IP —
+  // clientIp() returns null otherwise, and pooling everyone into a shared
+  // bucket would let one attacker lock out every visitor.
+  const ip = clientIp(req);
+  if (ip) {
+    const limited = rateLimit(
+      `login-ip:${ip}`,
+      IP_LIMIT.requests,
+      IP_LIMIT.windowMs,
+    );
+    if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  }
 
   const body = (await req.json().catch(() => ({}))) as Body;
   const email = body.email?.trim().toLowerCase() ?? "";

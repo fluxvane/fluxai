@@ -70,20 +70,21 @@ export function counterClear(key: string): void {
 }
 
 /**
- * Best-effort client IP for per-IP limits.
+ * Best-effort client IP for per-IP limits, or null when no trustworthy IP
+ * is available.
  *
  * x-forwarded-for / x-real-ip are only honored when TRUST_PROXY_HEADERS=1 —
  * i.e. the deployment sits behind a proxy that *overwrites* those headers
  * (nginx, Vercel, a load balancer). Without that opt-in a client can send
- * arbitrary XFF values and rotate them to evade the per-IP limits, so all
- * clients share the "unknown" bucket — fail-closed, never evadable.
+ * arbitrary XFF values and rotate them to evade per-IP limits, so they
+ * can't be trusted. Returning null (callers skip the per-IP check) avoids
+ * the two bad alternatives: trusting spoofable headers, or pooling every
+ * client into one shared bucket where a single attacker exhausts the limit
+ * for everyone. The per-account lockout still bounds credential guessing.
  */
-export function clientIp(req: NextRequest): string {
-  if (process.env.TRUST_PROXY_HEADERS === "1") {
-    const forwarded = req.headers.get("x-forwarded-for");
-    if (forwarded) return forwarded.split(",")[0].trim() || "unknown";
-    const real = req.headers.get("x-real-ip")?.trim();
-    if (real) return real;
-  }
-  return "unknown";
+export function clientIp(req: NextRequest): string | null {
+  if (process.env.TRUST_PROXY_HEADERS !== "1") return null;
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim() || null;
+  return req.headers.get("x-real-ip")?.trim() ?? null;
 }

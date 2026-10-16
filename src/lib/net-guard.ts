@@ -1,6 +1,7 @@
 import { promises as dns } from "node:dns";
-import type { LookupAddress } from "node:dns";
+import type { LookupAddress, LookupFunction } from "node:dns";
 import { isIP } from "node:net";
+import { Agent, type Dispatcher } from "undici";
 
 /**
  * SSRF defenses for the outbound proxy and image-generation routes. A
@@ -78,15 +79,24 @@ export function isBlockedIp(ip: string): boolean {
   return true;
 }
 
+function assertAllowedHostname(host: string): void {
+  if (
+    BLOCKED_HOSTNAMES.has(host) ||
+    BLOCKED_HOSTNAME_SUFFIXES.some((suffix) => host.endsWith(suffix))
+  ) {
+    throw new EndpointError(`Endpoint host "${host}" is not allowed.`);
+  }
+}
+
 /**
  * Parses `endpoint` and enforces that it is a plain http(s) URL whose host is
  * neither a blocked hostname nor resolves to a private/reserved address.
  * Returns the parsed URL (origin + path preserved). Throws EndpointError.
  *
- * Caveat: this checks the addresses the name resolves to at call time; a
- * hostile DNS server could still rebind between this check and the fetch.
- * Pinning the connection IP is out of scope — the check still stops the
- * common cases (literal IPs, metadata services, .internal/.local names).
+ * This is the cheap up-front gate; it cannot stop DNS rebinding or redirects
+ * on its own because fetch() re-resolves at connect time. Pair it with
+ * {@link ssrfDispatcher} so every connection (initial + redirect hops)
+ * re-validates the hostname and resolved IPs.
  */
 export async function assertPublicHttpEndpoint(
   endpoint: string,
@@ -112,12 +122,7 @@ export async function assertPublicHttpEndpoint(
   }
 
   const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (
-    BLOCKED_HOSTNAMES.has(host) ||
-    BLOCKED_HOSTNAME_SUFFIXES.some((suffix) => host.endsWith(suffix))
-  ) {
-    throw new EndpointError(`Endpoint host "${host}" is not allowed.`);
-  }
+  assertAllowedHostname(host);
 
   if (isIP(host)) {
     if (isBlockedIp(host)) {
@@ -163,4 +168,53 @@ export function validateProxyPath(path: string[]): string | null {
   }
   const joined = path.join("/");
   return joined.length <= 2048 ? joined : null;
+}
+
+/**
+ * DNS-rebinding / redirect hardening for upstream fetches.
+ *
+ * `assertPublicHttpEndpoint` checks the hostname once, but undici resolves
+ * DNS itself when it opens the socket — and again for each redirect hop. A
+ * hostile DNS server (or a public upstream that 302s to an internal URL)
+ * could therefore serve a private address at connect time and bypass the
+ * up-front check entirely.
+ *
+ * This dispatcher installs a custom `lookup` that re-runs the hostname
+ * blocklist and the private/reserved-IP filter on EVERY connection undici
+ * opens, so rebinding and redirect hops get the same scrutiny as the
+ * original endpoint. Serves only allowed addresses to the socket layer.
+ *
+ * Usage: `fetch(url, { ...init, dispatcher: ssrfDispatcher() })`.
+ */
+export function ssrfDispatcher(): Dispatcher {
+  const lookup: LookupFunction = (hostname, options, callback) => {
+    const host = hostname.toLowerCase();
+    try {
+      assertAllowedHostname(host);
+    } catch (err) {
+      callback(err as Error, [] as never);
+      return;
+    }
+    dns.lookup(hostname, { ...options, all: true }).then(
+      (addresses) => {
+        const safe = addresses.filter((a) => !isBlockedIp(a.address));
+        if (safe.length === 0) {
+          callback(
+            new EndpointError(
+              `Host "${host}" resolves only to private or reserved addresses.`,
+            ),
+            [] as never,
+          );
+          return;
+        }
+        if (options.all) {
+          callback(null, safe as never);
+        } else {
+          callback(null, safe[0].address, safe[0].family);
+        }
+      },
+      (err) => callback(err as Error, [] as never),
+    );
+  };
+  return new Agent({ connect: { lookup } });
 }

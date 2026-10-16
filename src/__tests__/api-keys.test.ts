@@ -28,6 +28,12 @@ describe("api-keys", () => {
     expect(decryptApiKey("sk-plaintext-legacy")).toBe("sk-plaintext-legacy");
   });
 
+  it("passes plaintext that merely starts with v1. through", () => {
+    // Not shaped like our ciphertext (wrong part count/lengths) → plaintext.
+    expect(decryptApiKey("v1.somelegacykey")).toBe("v1.somelegacykey");
+    expect(decryptApiKey("v1.a.b.c")).toBe("v1.a.b.c");
+  });
+
   it("rejects tampered ciphertext", () => {
     const stored = encryptApiKey("sk-secret");
     const parts = stored.split(".");

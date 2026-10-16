@@ -4,6 +4,7 @@ import {
   assertPublicHttpEndpoint,
   validateProxyPath,
   EndpointError,
+  ssrfDispatcher,
 } from "@/lib/net-guard";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -107,7 +108,11 @@ async function proxy(req: NextRequest, path: string[]) {
       Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": req.headers.get("content-type") ?? "application/json",
     },
-  };
+    // Re-validate hostname + resolved IPs at connect time (and on every
+    // redirect hop) — closes the DNS-rebinding/redirect hole in the
+    // up-front assertPublicHttpEndpoint check.
+    dispatcher: ssrfDispatcher(),
+  } as RequestInit;
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = await req.text();

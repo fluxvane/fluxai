@@ -5,6 +5,7 @@ import { getResolvedConfig, normalizeEndpoint } from "@/lib/user-config";
 import {
   assertPublicHttpEndpoint,
   EndpointError,
+  ssrfDispatcher,
 } from "@/lib/net-guard";
 import { rateLimit } from "@/lib/rate-limit";
 import { safeImageUrl } from "@/lib/safe-url";
@@ -89,16 +90,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const body = (await req.json().catch(() => ({}))) as GenBody;
+  const prompt = body.prompt?.trim() ?? "";
+  const model = body.model?.trim() ?? "";
+  const size = body.size?.trim() || "1024x1024";
+  const n = Math.min(Math.max(body.n ?? 1, 1), 4);
+
   const stored = await prisma.generatedImage.count({
     where: { userId: config.userId },
   });
-  if (stored >= GALLERY_CAP) {
-    return NextResponse.json(
-      {
-        error: `Gallery is full (${GALLERY_CAP} images). Delete some images and try again.`,
-      },
-      { status: 429 },
-    );
+  const overflow = stored + n - GALLERY_CAP;
+  if (overflow > 0) {
+    // The gallery is bounded, but there is no delete API — hard-rejecting
+    // here would brick generation forever. Evict the oldest images instead
+    // (FIFO) so a full gallery always makes room.
+    const oldest = await prisma.generatedImage.findMany({
+      where: { userId: config.userId },
+      orderBy: { createdAt: "asc" },
+      take: overflow,
+      select: { id: true },
+    });
+    await prisma.generatedImage.deleteMany({
+      where: { id: { in: oldest.map((o) => o.id) } },
+    });
   }
 
   const base = normalizeEndpoint(config.endpoint);
@@ -115,12 +129,6 @@ export async function POST(req: NextRequest) {
     }
     throw err;
   }
-
-  const body = (await req.json().catch(() => ({}))) as GenBody;
-  const prompt = body.prompt?.trim() ?? "";
-  const model = body.model?.trim() ?? "";
-  const size = body.size?.trim() || "1024x1024";
-  const n = Math.min(Math.max(body.n ?? 1, 1), 4);
 
   if (!prompt)
     return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
@@ -140,7 +148,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({ model, prompt, size, n }),
       signal: AbortSignal.timeout(120_000),
-    });
+      dispatcher: ssrfDispatcher(),
+    } as RequestInit);
   } catch (err) {
     return NextResponse.json(
       {

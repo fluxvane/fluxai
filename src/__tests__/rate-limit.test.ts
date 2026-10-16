@@ -71,12 +71,10 @@ describe("clientIp", () => {
 
   it("ignores spoofed X-Forwarded-For unless TRUST_PROXY_HEADERS=1", () => {
     delete process.env.TRUST_PROXY_HEADERS;
-    expect(
-      clientIp(req({ "x-forwarded-for": "1.2.3.4" })),
-    ).toBe("unknown");
-    expect(
-      clientIp(req({ "x-real-ip": "1.2.3.4" })),
-    ).toBe("unknown");
+    // No trustworthy IP: callers skip the per-IP check rather than pooling
+    // every client into one evadable-or-DoSable shared bucket.
+    expect(clientIp(req({ "x-forwarded-for": "1.2.3.4" }))).toBeNull();
+    expect(clientIp(req({ "x-real-ip": "1.2.3.4" }))).toBeNull();
   });
 
   it("honors proxy headers when TRUST_PROXY_HEADERS=1", () => {
@@ -85,6 +83,6 @@ describe("clientIp", () => {
       clientIp(req({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" })),
     ).toBe("1.2.3.4");
     expect(clientIp(req({ "x-real-ip": "9.9.9.9" }))).toBe("9.9.9.9");
-    expect(clientIp(req({}))).toBe("unknown");
+    expect(clientIp(req({}))).toBeNull();
   });
 });

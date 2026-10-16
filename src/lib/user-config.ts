@@ -4,6 +4,7 @@ import { decryptApiKey } from "@/lib/api-keys";
 import {
   assertPublicHttpEndpoint,
   EndpointError,
+  ssrfDispatcher,
 } from "@/lib/net-guard";
 
 export interface ResolvedConfig {
@@ -55,7 +56,9 @@ export async function probeProxy(
     const res = await fetch(`${base}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(15_000),
-    });
+      // Same connect-time DNS validation as the proxy/image routes.
+      dispatcher: ssrfDispatcher(),
+    } as RequestInit);
     if (res.ok) return { ok: true, status: res.status };
     return {
       ok: false,
