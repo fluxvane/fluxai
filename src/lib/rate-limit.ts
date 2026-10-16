@@ -69,9 +69,21 @@ export function counterClear(key: string): void {
   buckets.delete(key);
 }
 
-/** Best-effort client IP for per-IP limits (honors the proxy header). */
+/**
+ * Best-effort client IP for per-IP limits.
+ *
+ * x-forwarded-for / x-real-ip are only honored when TRUST_PROXY_HEADERS=1 —
+ * i.e. the deployment sits behind a proxy that *overwrites* those headers
+ * (nginx, Vercel, a load balancer). Without that opt-in a client can send
+ * arbitrary XFF values and rotate them to evade the per-IP limits, so all
+ * clients share the "unknown" bucket — fail-closed, never evadable.
+ */
 export function clientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim() || "unknown";
-  return req.headers.get("x-real-ip")?.trim() ?? "unknown";
+  if (process.env.TRUST_PROXY_HEADERS === "1") {
+    const forwarded = req.headers.get("x-forwarded-for");
+    if (forwarded) return forwarded.split(",")[0].trim() || "unknown";
+    const real = req.headers.get("x-real-ip")?.trim();
+    if (real) return real;
+  }
+  return "unknown";
 }

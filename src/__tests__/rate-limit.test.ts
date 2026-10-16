@@ -4,10 +4,15 @@ import {
   counterHit,
   counterValue,
   counterClear,
+  clientIp,
 } from "../lib/rate-limit";
+import { NextRequest } from "next/server";
+
+const OLD_ENV = { ...process.env };
 
 afterEach(() => {
   vi.useRealTimers();
+  process.env = { ...OLD_ENV };
 });
 
 describe("rateLimit", () => {
@@ -57,5 +62,29 @@ describe("failure counters", () => {
     expect(counterValue(key)).toBe(1);
     vi.setSystemTime(Date.now() + 1001);
     expect(counterValue(key)).toBe(0);
+  });
+});
+
+describe("clientIp", () => {
+  const req = (headers: Record<string, string>) =>
+    new NextRequest("http://localhost/api/x", { headers });
+
+  it("ignores spoofed X-Forwarded-For unless TRUST_PROXY_HEADERS=1", () => {
+    delete process.env.TRUST_PROXY_HEADERS;
+    expect(
+      clientIp(req({ "x-forwarded-for": "1.2.3.4" })),
+    ).toBe("unknown");
+    expect(
+      clientIp(req({ "x-real-ip": "1.2.3.4" })),
+    ).toBe("unknown");
+  });
+
+  it("honors proxy headers when TRUST_PROXY_HEADERS=1", () => {
+    process.env.TRUST_PROXY_HEADERS = "1";
+    expect(
+      clientIp(req({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" })),
+    ).toBe("1.2.3.4");
+    expect(clientIp(req({ "x-real-ip": "9.9.9.9" }))).toBe("9.9.9.9");
+    expect(clientIp(req({}))).toBe("unknown");
   });
 });
