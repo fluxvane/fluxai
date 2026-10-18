@@ -53,5 +53,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Skip auth checks for framework internals and static asset files —
+  // public/ assets and app/icon.* are served at the root and must load
+  // for visitors (e.g. the logo and favicon on the login page itself).
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|svg|ico|jpg|jpeg|webp|gif|woff2?)).*)",
+  ],
 };
