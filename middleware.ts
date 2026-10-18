@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { getJwtSecret } from "@/lib/jwt-secret";
 
 const AUTH_COOKIE = "flux_ai_token";
 
 // Pages reachable without a session.
 const PUBLIC_PAGES = ["/login"];
 
-function secret(): Uint8Array {
-  return new TextEncoder().encode(process.env.JWT_SECRET ?? "");
-}
-
 async function hasValidToken(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(AUTH_COOKIE)?.value;
   if (!token) return false;
+  // Resolved outside the try/catch so a missing JWT_SECRET throws here and
+  // fails the request loudly instead of silently rejecting every token (or
+  // worse, verifying tokens signed with an empty key).
+  const secret = getJwtSecret();
   try {
-    await jwtVerify(token, secret());
+    await jwtVerify(token, secret);
     return true;
   } catch {
     return false;

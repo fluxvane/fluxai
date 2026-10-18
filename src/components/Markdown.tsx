@@ -75,6 +75,13 @@ const Markdown = React.memo(function Markdown({
         rehypePlugins={[rehypeHighlight]}
         components={{
           pre: CodeBlock,
+          // Links in model output open in a new tab so clicking one never
+          // navigates away mid-chat; rel blocks reverse tabnabbing.
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
           table: ({ children }) => (
             <Box sx={{ overflowX: "auto", maxWidth: "100%" }}>
               <table>{children}</table>

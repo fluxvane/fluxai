@@ -58,7 +58,7 @@ RUN apk add --no-cache dumb-init \
   && adduser -S nextjs -u 1001 -G nextjs
 
 ENV NODE_ENV=production \
-  PORT=3000 \
+  PORT=3008 \
   HOSTNAME=0.0.0.0 \
   NEXT_TELEMETRY_DISABLED=1
 
@@ -70,9 +70,12 @@ COPY --from=builder --chown=nextjs:nextjs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nextjs /app/src/generated ./src/generated
 
 USER nextjs
-EXPOSE 3000
+EXPOSE 3008
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode < 400 ? 0 : 1)})" || exit 1
+# Same port as `pnpm start` (3008) and the README's -p 3008:3008 mapping.
+# The request gets an error handler + timeout so a hung connection fails the
+# probe fast instead of waiting out the retry budget.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "const req=require('http').get('http://localhost:3008/',(res)=>{res.resume();process.exit(res.statusCode<400?0:1)});req.setTimeout(4000,()=>{req.destroy();process.exit(1)});req.on('error',()=>process.exit(1))"
 
-CMD ["dumb-init", "node_modules/.bin/next", "start", "-p", "3000"]
+CMD ["dumb-init", "node_modules/.bin/next", "start", "-p", "3008"]

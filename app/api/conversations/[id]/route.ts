@@ -20,6 +20,14 @@ interface SyncBody {
   messages?: IncomingMessage[];
 }
 
+// Persisted roles replay verbatim into upstream chat history — anything else
+// is junk or an injection vector. Content is capped so the sync endpoint
+// can't be used as a large-object store.
+const VALID_ROLES = new Set(["user", "assistant", "system"]);
+const MAX_MESSAGES = 500;
+const MAX_CONTENT_CHARS = 64_000;
+const MAX_REASONING_CHARS = 256_000;
+
 async function ownConversation(userId: string, id: string) {
   const conv = await prisma.conversation.findUnique({
     where: { id },
@@ -90,9 +98,48 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
 
   const body = (await req.json().catch(() => ({}))) as SyncBody;
-  const messages = Array.isArray(body.messages)
-    ? body.messages.slice(0, 500)
-    : [];
+  const incoming = Array.isArray(body.messages) ? body.messages : [];
+
+  // Reject rather than sanitize: silently dropping invalid roles or slicing
+  // over-length content means the client believes data was saved that
+  // wasn't — reopening the conversation loses it without any error shown.
+  if (incoming.length > MAX_MESSAGES) {
+    return NextResponse.json(
+      { error: `Too many messages (max ${MAX_MESSAGES}).` },
+      { status: 400 },
+    );
+  }
+  const messages: IncomingMessage[] = [];
+  for (const [i, m] of incoming.entries()) {
+    if (
+      m == null ||
+      typeof m !== "object" ||
+      !VALID_ROLES.has(m.role) ||
+      typeof m.content !== "string"
+    ) {
+      return NextResponse.json(
+        { error: `Message ${i} has an unsupported role or missing content.` },
+        { status: 400 },
+      );
+    }
+    if (m.content.length > MAX_CONTENT_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Message ${i} content exceeds ${MAX_CONTENT_CHARS} characters.`,
+        },
+        { status: 400 },
+      );
+    }
+    if (typeof m.reasoning === "string" && m.reasoning.length > MAX_REASONING_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Message ${i} reasoning exceeds ${MAX_REASONING_CHARS} characters.`,
+        },
+        { status: 400 },
+      );
+    }
+    messages.push(m);
+  }
 
   const data: { title?: string } = {};
   if (body.title?.trim()) data.title = body.title.trim().slice(0, 120);
@@ -104,10 +151,14 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         conversationId: id,
         role: m.role,
         content: m.content,
-        reasoning: m.reasoning ?? null,
-        model: m.model ?? null,
-        promptTokens: m.promptTokens ?? null,
-        completionTokens: m.completionTokens ?? null,
+        reasoning: typeof m.reasoning === "string" ? m.reasoning : null,
+        model: typeof m.model === "string" ? m.model.slice(0, 200) : null,
+        promptTokens:
+          typeof m.promptTokens === "number" ? Math.trunc(m.promptTokens) : null,
+        completionTokens:
+          typeof m.completionTokens === "number"
+            ? Math.trunc(m.completionTokens)
+            : null,
       })),
     }),
     prisma.conversation.update({
