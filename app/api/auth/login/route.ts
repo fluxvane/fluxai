@@ -22,10 +22,6 @@ interface Body {
 const DUMMY_HASH = "$2b$10$qIT.36DNVdLHoQvcPfu3FugoY0C6tAPRPC4Pl/HQpJW7QNLsiAYqK";
 
 const IP_LIMIT = { requests: 15, windowMs: 60_000 };
-// Fallback bucket used when no trustworthy client IP exists — generous so
-// ordinary sign-in traffic fits, tight enough to blunt a flood of
-// email-rotating credential guesses from one source.
-const SHARED_IP_LIMIT = 120;
 const ACCOUNT_LIMIT = 10;
 const ACCOUNT_WINDOW_MS = 5 * 60_000;
 
@@ -37,19 +33,20 @@ function tooManyRequests(retryAfter: number) {
 }
 
 export async function POST(req: NextRequest) {
-  // Per-IP limit when a trusted proxy gives us a real client IP. Without
-  // one (clientIp() === null) every visitor shares a single generous
-  // bucket — still caps a single-source flood, while staying high enough
-  // that normal traffic won't trip it and an attacker can't hold the cap
-  // open to lock everyone out. Per-account lockout below stays the real
-  // brute-force guard.
+  // Per-IP limit only when a trusted proxy supplies a real client IP.
+  // Without one there is no trustworthy identity to bucket on — pooling
+  // all visitors into a shared cap would let one attacker block everyone's
+  // sign-ins. The per-account lockout below is the real brute-force guard;
+  // rotating emails doesn't evade it, since each account caps separately.
   const ip = clientIp(req);
-  const limited = rateLimit(
-    `login-ip:${ip ?? "shared"}`,
-    ip ? IP_LIMIT.requests : SHARED_IP_LIMIT,
-    IP_LIMIT.windowMs,
-  );
-  if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  if (ip) {
+    const limited = rateLimit(
+      `login-ip:${ip}`,
+      IP_LIMIT.requests,
+      IP_LIMIT.windowMs,
+    );
+    if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  }
 
   const body = (await req.json().catch(() => ({}))) as Body;
   const email = body.email?.trim().toLowerCase() ?? "";

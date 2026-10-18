@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, counterHit, counterValue, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,22 +13,31 @@ interface Body {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function POST(req: NextRequest) {
-  // Per-IP cap on account creation (spam / DB-bloat / enumeration abuse).
-  // Without a trusted proxy there is no real IP, so all visitors share one
-  // generous bucket — still caps single-source spam while staying too high
-  // for an attacker to keep exhausted and block sign-ups for everyone.
-  const ip = clientIp(req);
-  const limited = rateLimit(
-    `register-ip:${ip ?? "shared"}`,
-    ip ? 10 : 50,
-    5 * 60_000,
+// Global cap on successful account creation. Counts creations — not
+// attempts — so an attacker can't exhaust it with junk requests and block
+// real sign-ups; saturating it requires actually creating 50 accounts,
+// which is the abuse it exists to stop.
+const CREATED_LIMIT = { requests: 50, windowMs: 60 * 60_000 };
+
+function tooManyRequests(retryAfter: number) {
+  return NextResponse.json(
+    { error: "Too many attempts. Try again later." },
+    { status: 429, headers: { "Retry-After": String(retryAfter) } },
   );
-  if (!limited.ok) {
-    return NextResponse.json(
-      { error: "Too many attempts. Try again later." },
-      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
-    );
+}
+
+export async function POST(req: NextRequest) {
+  // Per-IP cap on registration attempts (spam / enumeration abuse) — only
+  // when a trusted proxy supplies a real IP; a shared per-attempt bucket
+  // would let one attacker block sign-ups for everyone.
+  const ip = clientIp(req);
+  if (ip) {
+    const limited = rateLimit(`register-ip:${ip}`, 10, 5 * 60_000);
+    if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  }
+
+  if (counterValue("register-created") >= CREATED_LIMIT.requests) {
+    return tooManyRequests(Math.ceil(CREATED_LIMIT.windowMs / 1000));
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
@@ -76,6 +85,7 @@ export async function POST(req: NextRequest) {
     data: { email, name, passwordHash },
     select: { id: true, email: true, name: true },
   });
+  counterHit("register-created", CREATED_LIMIT.windowMs);
 
   const token = await signToken({
     sub: user.id,
