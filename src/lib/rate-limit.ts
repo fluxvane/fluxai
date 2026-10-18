@@ -77,10 +77,11 @@ export function counterClear(key: string): void {
  * i.e. the deployment sits behind a proxy that *overwrites* those headers
  * (nginx, Vercel, a load balancer). Without that opt-in a client can send
  * arbitrary XFF values and rotate them to evade per-IP limits, so they
- * can't be trusted. Returning null (callers skip the per-IP check) avoids
- * the two bad alternatives: trusting spoofable headers, or pooling every
- * client into one shared bucket where a single attacker exhausts the limit
- * for everyone. The per-account lockout still bounds credential guessing.
+ * can't be trusted. Returning null lets callers decide how to degrade:
+ * pooling every visitor into a shared bucket would let one attacker
+ * exhaust the limit for everyone, so per-IP checks are skipped entirely
+ * and bounds that don't need an IP (per-account lockout, global creation
+ * caps) carry the weight instead.
  */
 export function clientIp(req: NextRequest): string | null {
   if (process.env.TRUST_PROXY_HEADERS !== "1") return null;

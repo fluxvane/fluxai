@@ -69,19 +69,8 @@ export default function LoginPage() {
             style={{ animation: "flux-fade-up 0.6s var(--ease-out) both" }}
           >
             <span className="login-brand__mark" aria-hidden>
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
-                <path d="M19 16l.7 1.6L21 18l-1.3.4L19 20l-.7-1.6L17 18l1.3-.4L19 16z" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="" width="30" height="30" />
             </span>
             <span className="login-brand__name">Flux AI</span>
           </div>

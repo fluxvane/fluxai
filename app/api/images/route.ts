@@ -96,25 +96,6 @@ export async function POST(req: NextRequest) {
   const size = body.size?.trim() || "1024x1024";
   const n = Math.min(Math.max(body.n ?? 1, 1), 4);
 
-  const stored = await prisma.generatedImage.count({
-    where: { userId: config.userId },
-  });
-  const overflow = stored + n - GALLERY_CAP;
-  if (overflow > 0) {
-    // The gallery is bounded, but there is no delete API — hard-rejecting
-    // here would brick generation forever. Evict the oldest images instead
-    // (FIFO) so a full gallery always makes room.
-    const oldest = await prisma.generatedImage.findMany({
-      where: { userId: config.userId },
-      orderBy: { createdAt: "asc" },
-      take: overflow,
-      select: { id: true },
-    });
-    await prisma.generatedImage.deleteMany({
-      where: { id: { in: oldest.map((o) => o.id) } },
-    });
-  }
-
   const base = normalizeEndpoint(config.endpoint);
 
   // Same SSRF guard as the proxy route: the stored endpoint is user input.
@@ -225,6 +206,27 @@ export async function POST(req: NextRequest) {
       }),
     ),
   );
+
+  // Cap the gallery after a successful insert (there is no delete API, so
+  // unbounded growth is not an option). Trimming post-insert means a failed
+  // generation never destroys existing art, and concurrent writers that
+  // each overshoot still converge on the cap — their deleteMany calls hit
+  // the same oldest rows.
+  const extra =
+    (await prisma.generatedImage.count({
+      where: { userId: config.userId },
+    })) - GALLERY_CAP;
+  if (extra > 0) {
+    const oldest = await prisma.generatedImage.findMany({
+      where: { userId: config.userId },
+      orderBy: { createdAt: "asc" },
+      take: extra,
+      select: { id: true },
+    });
+    await prisma.generatedImage.deleteMany({
+      where: { id: { in: oldest.map((o) => o.id) } },
+    });
+  }
 
   return NextResponse.json({
     images: created.map((img) => ({

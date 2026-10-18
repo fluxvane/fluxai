@@ -33,9 +33,11 @@ function tooManyRequests(retryAfter: number) {
 }
 
 export async function POST(req: NextRequest) {
-  // Per-IP limit only when a trusted proxy gives us a real client IP —
-  // clientIp() returns null otherwise, and pooling everyone into a shared
-  // bucket would let one attacker lock out every visitor.
+  // Per-IP limit only when a trusted proxy supplies a real client IP.
+  // Without one there is no trustworthy identity to bucket on — pooling
+  // all visitors into a shared cap would let one attacker block everyone's
+  // sign-ins. The per-account lockout below is the real brute-force guard;
+  // rotating emails doesn't evade it, since each account caps separately.
   const ip = clientIp(req);
   if (ip) {
     const limited = rateLimit(
