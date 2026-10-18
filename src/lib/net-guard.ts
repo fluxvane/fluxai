@@ -1,7 +1,7 @@
 import { promises as dns } from "node:dns";
 import type { LookupAddress } from "node:dns";
 import { isIP, type LookupFunction } from "node:net";
-import { Agent, type Dispatcher } from "undici";
+import { Agent, buildConnector, type Dispatcher } from "undici";
 
 /**
  * SSRF defenses for the outbound proxy and image-generation routes. A
@@ -171,6 +171,24 @@ export function validateProxyPath(path: string[]): string | null {
 }
 
 /**
+ * Strict check on a resolved address set: ANY private/reserved record
+ * rejects the whole set — the same policy `assertPublicHttpEndpoint`
+ * applies up front. Filtering blocked records out instead would let a
+ * rebinding lookup smuggle a private address through beside a public one.
+ */
+export function assertPublicAddresses(
+  host: string,
+  addresses: LookupAddress[],
+): LookupAddress[] {
+  if (addresses.length === 0 || addresses.some((a) => isBlockedIp(a.address))) {
+    throw new EndpointError(
+      `Host "${host}" resolves to a private or reserved address.`,
+    );
+  }
+  return addresses;
+}
+
+/**
  * DNS-rebinding / redirect hardening for upstream fetches.
  *
  * `assertPublicHttpEndpoint` checks the hostname once, but undici resolves
@@ -179,10 +197,12 @@ export function validateProxyPath(path: string[]): string | null {
  * could therefore serve a private address at connect time and bypass the
  * up-front check entirely.
  *
- * This dispatcher installs a custom `lookup` that re-runs the hostname
- * blocklist and the private/reserved-IP filter on EVERY connection undici
- * opens, so rebinding and redirect hops get the same scrutiny as the
- * original endpoint. Serves only allowed addresses to the socket layer.
+ * This dispatcher re-validates every connection undici opens in two layers:
+ * a custom `lookup` re-runs the hostname blocklist and the strict
+ * private/reserved-IP filter for DNS names, and the wrapped connector
+ * checks the connect target itself — IP-literal redirects skip `lookup`
+ * entirely, so a 302 to http://169.254.169.254/ would otherwise dial the
+ * metadata service unfiltered.
  *
  * Usage: `fetch(url, { ...init, dispatcher: ssrfDispatcher() })`.
  */
@@ -197,24 +217,44 @@ export function ssrfDispatcher(): Dispatcher {
     }
     dns.lookup(hostname, { ...options, all: true }).then(
       (addresses) => {
-        const safe = addresses.filter((a) => !isBlockedIp(a.address));
-        if (safe.length === 0) {
-          callback(
-            new EndpointError(
-              `Host "${host}" resolves only to private or reserved addresses.`,
-            ),
-            "",
-          );
-          return;
-        }
-        if (options.all) {
-          callback(null, safe);
-        } else {
-          callback(null, safe[0].address, safe[0].family);
+        try {
+          const safe = assertPublicAddresses(host, addresses);
+          if (options.all) {
+            callback(null, safe);
+          } else {
+            callback(null, safe[0].address, safe[0].family);
+          }
+        } catch (err) {
+          callback(err as NodeJS.ErrnoException, "");
         }
       },
       (err: NodeJS.ErrnoException) => callback(err, ""),
     );
   };
-  return new Agent({ connect: { lookup } });
+
+  const connector = buildConnector({ lookup });
+  const connect: buildConnector.connector = (opts, callback) => {
+    const host = opts.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    if (isIP(host)) {
+      if (isBlockedIp(host)) {
+        callback(
+          new EndpointError(
+            `Connection to private or reserved address ${host} is not allowed.`,
+          ),
+          null,
+        );
+        return;
+      }
+    } else {
+      try {
+        assertAllowedHostname(host);
+      } catch (err) {
+        callback(err as Error, null);
+        return;
+      }
+    }
+    connector(opts, callback);
+  };
+
+  return new Agent({ connect });
 }

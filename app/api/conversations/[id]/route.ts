@@ -98,17 +98,19 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
 
   const body = (await req.json().catch(() => ({}))) as SyncBody;
-  const incoming = Array.isArray(body.messages) ? body.messages : [];
 
-  // Reject rather than sanitize: silently dropping invalid roles or slicing
-  // over-length content means the client believes data was saved that
-  // wasn't — reopening the conversation loses it without any error shown.
-  if (incoming.length > MAX_MESSAGES) {
-    return NextResponse.json(
-      { error: `Too many messages (max ${MAX_MESSAGES}).` },
-      { status: 400 },
-    );
-  }
+  // Over the cap, keep the newest messages rather than rejecting: the
+  // client's persist() ignores failures, so a 400 would silently stop the
+  // conversation from saving at all. Pruning the oldest is the lesser
+  // loss and keeps the stored history consistent with the cap.
+  const incoming = Array.isArray(body.messages)
+    ? body.messages.slice(-MAX_MESSAGES)
+    : [];
+
+  // Reject rather than sanitize malformed entries: silently dropping
+  // invalid roles or slicing over-length content means the client believes
+  // data was saved that wasn't — reopening the conversation loses it
+  // without any error shown.
   const messages: IncomingMessage[] = [];
   for (const [i, m] of incoming.entries()) {
     if (

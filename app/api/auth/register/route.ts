@@ -15,17 +15,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   // Per-IP cap on account creation (spam / DB-bloat / enumeration abuse).
-  // Skipped when no trusted proxy supplies a real IP — a shared bucket
-  // would let one attacker throttle registration for everyone.
+  // Without a trusted proxy there is no real IP, so all visitors share one
+  // generous bucket — still caps single-source spam while staying too high
+  // for an attacker to keep exhausted and block sign-ups for everyone.
   const ip = clientIp(req);
-  if (ip) {
-    const limited = rateLimit(`register-ip:${ip}`, 10, 5 * 60_000);
-    if (!limited.ok) {
-      return NextResponse.json(
-        { error: "Too many attempts. Try again later." },
-        { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
-      );
-    }
+  const limited = rateLimit(
+    `register-ip:${ip ?? "shared"}`,
+    ip ? 10 : 50,
+    5 * 60_000,
+  );
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+    );
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;

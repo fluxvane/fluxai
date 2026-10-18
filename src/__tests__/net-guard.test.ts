@@ -3,6 +3,7 @@ import {
   isBlockedIp,
   validateProxyPath,
   assertPublicHttpEndpoint,
+  assertPublicAddresses,
   EndpointError,
 } from "../lib/net-guard";
 
@@ -122,6 +123,36 @@ describe("assertPublicHttpEndpoint", () => {
     "http://metadata.google.internal",
   ])("rejects %s without external fetches", async (endpoint) => {
     await expect(assertPublicHttpEndpoint(endpoint)).rejects.toThrow(
+      EndpointError,
+    );
+  });
+});
+
+describe("assertPublicAddresses", () => {
+  it("returns all-public address sets untouched", () => {
+    const addresses = [
+      { address: "8.8.8.8", family: 4 },
+      { address: "1.1.1.1", family: 4 },
+      { address: "2606:4700:4700::1111", family: 6 },
+    ];
+    expect(assertPublicAddresses("example.com", addresses)).toBe(addresses);
+  });
+
+  it("rejects the whole set when any record is private/reserved", () => {
+    // A mixed answer must not be filtered to just its public records —
+    // a rebinding lookup could smuggle a private address in that way.
+    for (const privateIp of ["10.0.0.1", "169.254.169.254", "::1"]) {
+      expect(() =>
+        assertPublicAddresses("example.com", [
+          { address: "8.8.8.8", family: 4 },
+          { address: privateIp, family: privateIp.includes(":") ? 6 : 4 },
+        ]),
+      ).toThrow(EndpointError);
+    }
+  });
+
+  it("rejects empty address sets", () => {
+    expect(() => assertPublicAddresses("example.com", [])).toThrow(
       EndpointError,
     );
   });
