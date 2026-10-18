@@ -1,3 +1,5 @@
+<p align="center"><img src="public/logo.svg" width="96" height="96" alt="Flux AI logo"></p>
+
 # Flux AI
 
 [![CI](https://github.com/fluxvane/fluxai/actions/workflows/ci.yml/badge.svg)](https://github.com/fluxvane/fluxai/actions/workflows/ci.yml)
