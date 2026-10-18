@@ -70,7 +70,7 @@ export default function LoginPage() {
           >
             <span className="login-brand__mark" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt="" width="30" height="30" />
+              <img src="/logo.png" alt="" width="30" height="30" />
             </span>
             <span className="login-brand__name">Flux AI</span>
           </div>
