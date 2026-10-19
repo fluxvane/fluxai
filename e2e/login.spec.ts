@@ -19,10 +19,10 @@ test.describe("Auth page", () => {
   });
 
   test("register tab reveals the name field", async ({ page }) => {
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await page.getByRole("tab", { name: "Create account" }).click();
     await expect(page.getByLabel("Your name")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Create your account" }),
+      page.getByRole("heading", { name: "Get started" }),
     ).toBeVisible();
   });
 

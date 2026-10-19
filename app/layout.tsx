@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Flux AI",
+  title: { default: "Flux AI", template: "%s · Flux AI" },
   description: "Your gateway to any AI model.",
 };
 

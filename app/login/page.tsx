@@ -9,7 +9,7 @@ type Mode = "signin" | "register";
 const FEATURE_PILLS = [
   { label: "Streaming", icon: "✦" },
   { label: "Any OpenAI-compatible proxy", icon: "✺" },
-  { label: "Encrypted key storage", icon: "◉" },
+  { label: "Image studio", icon: "◉" },
 ];
 
 export default function LoginPage() {
@@ -69,8 +69,19 @@ export default function LoginPage() {
             style={{ animation: "flux-fade-up 0.6s var(--ease-out) both" }}
           >
             <span className="login-brand__mark" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="" width="30" height="30" />
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
+                <path d="M19 16l.7 1.6L21 18l-1.3.4L19 20l-.7-1.6L17 18l1.3-.4L19 16z" />
+              </svg>
             </span>
             <span className="login-brand__name">Flux AI</span>
           </div>
@@ -95,9 +106,8 @@ export default function LoginPage() {
             }}
           >
             Connect your OpenAI-compatible endpoint, drop in an API key, and
-            start chatting with 200+ models — from Gemini and GPT to Claude and
-            beyond. Your key is stored encrypted on this server and never
-            leaves it except to call your endpoint.
+            start chatting with any model it serves. Your key is stored
+            server-side and never sent back to the browser.
           </p>
 
           <ul
@@ -169,7 +179,7 @@ export default function LoginPage() {
             <p className="login-card__hint">
               {mode === "signin"
                 ? "Sign in with the email and password you used to register."
-                : "Your account lives on this server — passwords are hashed and your proxy key is stored encrypted."}
+                : "Create an account to keep your conversations, images, and proxy settings in one place."}
             </p>
 
             {error && (
@@ -211,6 +221,7 @@ export default function LoginPage() {
                     </span>
                     <input
                       id="auth-name"
+                      name="name"
                       type="text"
                       className="login-field__input"
                       placeholder="Ada Lovelace"
@@ -245,6 +256,7 @@ export default function LoginPage() {
                   </span>
                   <input
                     id="auth-email"
+                    name="email"
                     type="email"
                     className="login-field__input"
                     placeholder="you@example.com"
@@ -279,6 +291,7 @@ export default function LoginPage() {
                   </span>
                   <input
                     id="auth-password"
+                    name="password"
                     type={showPw ? "text" : "password"}
                     className="login-field__input"
                     placeholder={
@@ -290,6 +303,7 @@ export default function LoginPage() {
                       mode === "signin" ? "current-password" : "new-password"
                     }
                     required
+                    minLength={mode === "register" ? 8 : undefined}
                   />
                   <button
                     type="button"
@@ -336,6 +350,7 @@ export default function LoginPage() {
                 type="submit"
                 className="login-submit"
                 disabled={busy || !ready}
+                aria-busy={busy}
               >
                 <span className="login-submit__shine" aria-hidden />
                 <span className="login-submit__label">

@@ -10,7 +10,10 @@ import {
 } from "recharts";
 
 export interface DailyDatum {
+  /** Short axis label (day of month). */
   label: string;
+  /** Full date for the tooltip, e.g. "Thu, Oct 1". */
+  fullDate: string;
   date: string;
   count: number;
 }
@@ -32,6 +35,11 @@ export default function DailyChart({ data }: { data: DailyDatum[] }) {
         />
         <RTooltip
           cursor={{ fill: "rgba(118,185,0,0.08)" }}
+          labelFormatter={(_, payload) =>
+            (payload?.[0]?.payload as DailyDatum | undefined)?.fullDate ?? ""
+          }
+          formatter={(value) => [value, "Messages"]}
+          itemStyle={{ color: "var(--accent-2)" }}
           contentStyle={{
             background: "var(--surface-solid)",
             border: "1px solid var(--border)",

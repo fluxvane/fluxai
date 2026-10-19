@@ -22,9 +22,11 @@ import {
   KeyOutlined,
   TuneOutlined,
   ArrowForward,
+  ArrowBack,
   CheckCircleOutlineRounded,
   LogoutOutlined,
 } from "@mui/icons-material";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import GlassPanel from "@/components/aurora/GlassPanel";
 import DisplayHeading from "@/components/aurora/DisplayHeading";
@@ -33,7 +35,8 @@ const QUICK_MODELS = ["chat", "speed", "coding", "hermes", "review"];
 
 export default function ConfigPage() {
   const router = useRouter();
-  const { user, isLoaded, config, saveConfig, logout } = useAuth();
+  const { user, isLoaded, config, hasConfig, saveConfig, logout } = useAuth();
+  const queryClient = useQueryClient();
   const [endpoint, setEndpoint] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [defaultModel, setDefaultModel] = useState("chat");
@@ -66,6 +69,7 @@ export default function ConfigPage() {
         setError(result.error ?? "Could not validate your configuration.");
         return;
       }
+      void queryClient.invalidateQueries({ queryKey: ["models"] });
       router.replace("/chat");
     } finally {
       setBusy(false);
@@ -136,7 +140,7 @@ export default function ConfigPage() {
           </Box>
         </Stack>
 
-        <GlassPanel sx={{ p: { xs: 3, md: 4 } }}>
+        <GlassPanel sx={{ p: { xs: 2.5, sm: 4 } }}>
           {error && (
             <Alert
               severity="error"
@@ -159,7 +163,9 @@ export default function ConfigPage() {
                     onChange={(e) => setEndpoint(e.target.value)}
                     fullWidth
                     required
+                    type="url"
                     autoComplete="off"
+                    autoFocus
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -198,6 +204,7 @@ export default function ConfigPage() {
                             onClick={() => setShowKey((s) => !s)}
                             edge="end"
                             size="small"
+                            aria-label={showKey ? "Hide key" : "Show key"}
                           >
                             {showKey ? (
                               <VisibilityOff sx={{ fontSize: 18 }} />
@@ -242,6 +249,7 @@ export default function ConfigPage() {
                           label={m}
                           size="small"
                           onClick={() => setDefaultModel(m)}
+                          aria-pressed={defaultModel === m}
                           sx={{
                             cursor: "pointer",
                             bgcolor:
@@ -278,7 +286,11 @@ export default function ConfigPage() {
                     sx={{ mt: 0.5, py: 1.25, fontSize: 14.5 }}
                   >
                     {busy ? (
-                      <CircularProgress size={18} sx={{ color: "white" }} />
+                      <CircularProgress
+                        size={18}
+                        color="inherit"
+                        aria-label="Verifying"
+                      />
                     ) : (
                       "Verify & continue"
                     )}
@@ -289,23 +301,34 @@ export default function ConfigPage() {
           </form>
 
           <Divider sx={{ my: 2, borderColor: "rgba(161,161,170,0.1)" }} />
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            <CheckCircleOutlineRounded
+              sx={{ fontSize: 15, color: "success.main" }}
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: 12 }}
+            >
+              Your key is stored server-side, never exposed to the browser.
+            </Typography>
+          </Stack>
           <Stack
             direction="row"
-            alignItems="center"
-            justifyContent="space-between"
+            justifyContent={hasConfig ? "space-between" : "flex-end"}
+            sx={{ mt: 1.5 }}
           >
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <CheckCircleOutlineRounded
-                sx={{ fontSize: 15, color: "success.main" }}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontSize: 12 }}
+            {hasConfig && (
+              <Button
+                size="small"
+                color="inherit"
+                startIcon={<ArrowBack sx={{ fontSize: 16 }} />}
+                onClick={() => router.push("/chat")}
+                sx={{ color: "text.secondary", fontSize: 12 }}
               >
-                Your key is stored server-side, never exposed to the browser.
-              </Typography>
-            </Stack>
+                Back to chat
+              </Button>
+            )}
             <Button
               size="small"
               color="inherit"

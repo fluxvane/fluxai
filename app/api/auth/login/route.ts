@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       email: true,
       name: true,
       passwordHash: true,
-      config: { select: { id: true } },
+      config: { select: { endpoint: true, defaultModel: true } },
     },
   });
 
@@ -100,5 +100,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     user: { id: user.id, email: user.email, name: user.name },
     hasConfig: !!user.config,
+    config: user.config,
   });
 }

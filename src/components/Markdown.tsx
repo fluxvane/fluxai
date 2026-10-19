@@ -22,8 +22,15 @@ function CodeBlock({ children }: { children?: React.ReactNode }) {
   };
 
   return (
-    <Box sx={{ position: "relative", "&:hover .flux-copy": { opacity: 1 } }}>
-      <Tooltip title={copied ? "Copied" : "Copy"}>
+    <Box
+      sx={{
+        position: "relative",
+        "&:hover .flux-copy, & .flux-copy:focus-visible": { opacity: 1 },
+        // Touch screens have no hover: keep the button visible.
+        "@media (hover: none)": { "& .flux-copy": { opacity: 1 } },
+      }}
+    >
+      <Tooltip title={copied ? "Copied" : "Copy code"}>
         <IconButton
           className="flux-copy"
           size="small"
@@ -62,21 +69,30 @@ function extractText(node: React.ReactNode): string {
 
 const Markdown = React.memo(function Markdown({
   children,
+  streaming = false,
 }: {
   children: string;
+  /** Shows a blinking caret after the last block while text streams in. */
+  streaming?: boolean;
 }) {
   return (
     <Box
-      className="flux-markdown"
-      sx={{ fontSize: 14.5, lineHeight: 1.65, color: "text.primary" }}
+      className={`flux-markdown${streaming ? " is-streaming" : ""}`}
+      sx={{
+        fontSize: 14.5,
+        lineHeight: 1.65,
+        color: "text.primary",
+        minWidth: 0,
+        overflowWrap: "anywhere",
+      }}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           pre: CodeBlock,
-          // Links in model output open in a new tab so clicking one never
-          // navigates away mid-chat; rel blocks reverse tabnabbing.
+          // Open links in a new tab so a click never navigates away from (and
+          // aborts) the chat.
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">
               {children}

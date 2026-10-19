@@ -26,6 +26,7 @@ import {
   TuneOutlined,
   CheckCircleRounded,
 } from "@mui/icons-material";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface SettingsDialogProps {
@@ -35,6 +36,7 @@ interface SettingsDialogProps {
 
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { user, config, updateConfig } = useAuth();
+  const queryClient = useQueryClient();
   const [endpoint, setEndpoint] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [defaultModel, setDefaultModel] = useState("chat");
@@ -69,6 +71,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         return;
       }
       setSaved(true);
+      // The endpoint or key may have changed: refetch the model list.
+      void queryClient.invalidateQueries({ queryKey: ["models"] });
       setTimeout(() => onClose(), 700);
     } finally {
       setBusy(false);
@@ -80,7 +84,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={busy ? undefined : onClose}
       maxWidth="sm"
       fullWidth
       PaperProps={{
@@ -171,6 +175,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               fullWidth
+              type="url"
+              autoComplete="off"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -204,6 +210,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       onClick={() => setShowKey((s) => !s)}
                       edge="end"
                       size="small"
+                      aria-label={showKey ? "Hide key" : "Show key"}
                     >
                       {showKey ? (
                         <VisibilityOff sx={{ fontSize: 18 }} />
@@ -237,9 +244,18 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           <Button onClick={onClose} color="inherit">
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={busy}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={busy}
+            sx={{ minWidth: 132 }}
+          >
             {busy ? (
-              <CircularProgress size={18} sx={{ color: "white" }} />
+              <CircularProgress
+                size={18}
+                color="inherit"
+                aria-label="Verifying"
+              />
             ) : (
               "Save & verify"
             )}
