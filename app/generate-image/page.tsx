@@ -25,6 +25,7 @@ import AppShell from "@/components/AppShell";
 import ModelPicker from "@/components/ModelPicker";
 import GlassPanel from "@/components/aurora/GlassPanel";
 import DisplayHeading from "@/components/aurora/DisplayHeading";
+import { isSafeImageSrc } from "@/lib/safe-url";
 
 interface GeneratedImage {
   id: string;
@@ -257,7 +258,11 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
           gap: 2,
         }}
       >
-        {images.map((img, i) => (
+        {images.map((img, i) => {
+          // Defense in depth: the API already whitelists schemes, but a
+          // javascript:/data:text/html src must never reach <img>/<a>.
+          const src = isSafeImageSrc(img.src) ? img.src : null;
+          return (
           <Box
             key={img.id}
             sx={{
@@ -278,10 +283,10 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                 "&:hover img": { transform: "scale(1.03)" },
               }}
             >
-              {img.src ? (
+              {src ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={img.src}
+                  src={src}
                   alt={img.prompt}
                   style={{
                     width: "100%",
@@ -338,14 +343,15 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
                   >
                     {img.prompt}
                   </Typography>
-                  {img.src && (
+                  {src && (
                     <Tooltip title="Download">
                       <IconButton
                         size="small"
                         component="a"
-                        href={img.src}
+                        href={src}
                         download={`flux-${img.id}.png`}
                         target="_blank"
+                        rel="noopener noreferrer"
                         sx={{
                           color: "white",
                           bgcolor: "rgba(0,0,0,0.4)",
@@ -373,7 +379,8 @@ function Gallery({ images }: { images: GeneratedImage[] }) {
               </Box>
             </GlassPanel>
           </Box>
-        ))}
+          );
+        })}
       </Box>
     </>
   );
