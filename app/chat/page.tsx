@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   Box,
   Stack,
@@ -20,13 +27,19 @@ import {
   RefreshOutlined,
   CheckOutlined,
 } from "@mui/icons-material";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/contexts/AuthContext";
 import AppShell from "@/components/AppShell";
 import ModelPicker from "@/components/ModelPicker";
-import Markdown from "@/components/Markdown";
 import ThinkingPanel from "@/components/ThinkingPanel";
+
+// react-markdown + highlight.js are ~100kB; load them only when a message
+// actually renders, keeping them out of the chat route's first-load bundle.
+const Markdown = dynamic(() => import("@/components/Markdown"), {
+  ssr: false,
+  loading: () => null,
+});
 import type { ChatMessage } from "@/types/chat";
 
 const SUGGESTIONS = [
@@ -63,32 +76,42 @@ const STARTER_PROMPTS = [
 export default function ChatPage() {
   const { user } = useAuth();
   const chat = useChat();
-  const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerRef = useRef<ComposerHandle | null>(null);
+  // Whether the user is pinned to the bottom. While true, the view follows the
+  // streaming response; once the user scrolls up to re-read, following stops so
+  // we never yank them away mid-read.
+  const atBottomRef = useRef(true);
 
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  // Follow the answer as it streams. Instant (not smooth) so it keeps pace with
+  // rapid token updates — smooth-scroll animations queue up and stall. Runs on
+  // every message mutation (each token replaces the messages array reference).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    const el = scrollRef.current;
+    if (!el || !atBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [chat.messages]);
 
-  const handleSend = async () => {
-    const content = input.trim();
-    if (!content || chat.isStreaming) return;
-    setInput("");
-    await chat.send(content);
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void handleSend();
-    }
-  };
+  // Stable across renders so <Composer> (and memoized bubbles) don't re-render
+  // on every streaming token.
+  const handleSend = useCallback(
+    (content: string) => {
+      atBottomRef.current = true; // sending always re-pins to the bottom
+      void chat.send(content);
+    },
+    [chat],
+  );
+  const handleRegenerate = useCallback(() => void chat.regenerate(), [chat]);
+  const handlePrompt = useCallback((prompt: string) => {
+    composerRef.current?.setValue(prompt);
+    composerRef.current?.focus();
+  }, []);
 
   const isEmpty = chat.messages.length === 0;
   const firstName = user?.name.split(" ")[0] ?? "there";
@@ -99,21 +122,17 @@ export default function ChatPage() {
     >
       <Box
         ref={scrollRef}
+        onScroll={handleScroll}
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
         }}
       >
         {isEmpty ? (
-          <EmptyHero
-            name={firstName}
-            onPrompt={(prompt) => {
-              setInput(prompt);
-              inputRef.current?.focus();
-            }}
-          />
+          <EmptyHero name={firstName} onPrompt={handlePrompt} />
         ) : (
           <Box
             sx={{
@@ -131,12 +150,11 @@ export default function ChatPage() {
                   <MessageBubble
                     key={message.id}
                     message={message}
-                    userName={user?.name ?? "You"}
                     isLast={isLast}
                     isStreaming={
                       chat.isStreaming && isLast && message.role === "assistant"
                     }
-                    onRegenerate={() => void chat.regenerate()}
+                    onRegenerate={handleRegenerate}
                   />
                 );
               })}
@@ -159,118 +177,177 @@ export default function ChatPage() {
         )}
       </Box>
 
-      <Box
-        component="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void handleSend();
-        }}
-        sx={{
-          position: "sticky",
-          bottom: 0,
-          px: { xs: 2, md: 4 },
-          pb: { xs: 2, md: 3 },
-          pt: 2,
-          background:
-            "linear-gradient(180deg, transparent 0%, rgba(9,9,11,0.85) 30%, rgba(9,9,11,0.98) 100%)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <Box sx={{ maxWidth: 780, mx: "auto" }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 1,
-              p: 1.25,
-              borderRadius: 3,
-              border: "1px solid rgba(161,161,170,0.15)",
-              background: "rgba(24,24,27,0.7)",
-              backdropFilter: "blur(20px)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-              transition: "all 0.2s",
-              "&:focus-within": {
-                borderColor: "rgba(139,92,246,0.5)",
-                boxShadow: "0 8px 32px rgba(139,92,246,0.18)",
-              },
-            }}
-          >
-            <TextField
-              inputRef={inputRef}
-              multiline
-              maxRows={8}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Message Flux AI…"
-              fullWidth
-              variant="standard"
-              InputProps={{
-                disableUnderline: true,
-                sx: { fontSize: 15, px: 1.5, py: 0.5 },
-              }}
-              sx={{ flex: 1 }}
-            />
-            {chat.isStreaming ? (
-              <Tooltip title="Stop generating">
-                <IconButton
-                  onClick={chat.abort}
-                  sx={{
-                    bgcolor: "error.main",
-                    color: "white",
-                    "&:hover": { bgcolor: "error.dark" },
-                    width: 38,
-                    height: 38,
-                  }}
-                >
-                  <StopOutlined sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Tooltip title="Send (Enter)">
-                <span>
-                  <IconButton
-                    type="submit"
-                    disabled={!input.trim()}
-                    sx={{
-                      background: input.trim()
-                        ? "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
-                        : "rgba(161,161,170,0.08)",
-                      color: input.trim() ? "white" : "text.secondary",
-                      "&:hover": {
-                        background: input.trim()
-                          ? "linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)"
-                          : "rgba(161,161,170,0.14)",
-                      },
-                      width: 38,
-                      height: 38,
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    <SendOutlined sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
-          </Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: "block",
-              textAlign: "center",
-              mt: 1.5,
-              fontSize: 11,
-              opacity: 0.7,
-            }}
-          >
-            Flux AI · {chat.model || "no model"} · responses can be inaccurate
-          </Typography>
-        </Box>
-      </Box>
+      <Composer
+        ref={composerRef}
+        model={chat.model}
+        isStreaming={chat.isStreaming}
+        onSend={handleSend}
+        onAbort={chat.abort}
+      />
     </AppShell>
   );
 }
+
+interface ComposerHandle {
+  setValue: (value: string) => void;
+  focus: () => void;
+}
+
+/**
+ * The message composer owns its own input state so that keystrokes (including
+ * IME composition for Vietnamese) re-render ONLY this small subtree — never the
+ * message list or markdown above it. The parent pushes starter prompts in via
+ * the imperative handle.
+ */
+const Composer = forwardRef<
+  ComposerHandle,
+  {
+    model: string;
+    isStreaming: boolean;
+    onSend: (content: string) => void;
+    onAbort: () => void;
+  }
+>(function Composer({ model, isStreaming, onSend, onAbort }, ref) {
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    setValue: (value: string) => setInput(value),
+    focus: () => inputRef.current?.focus(),
+  }));
+
+  const submit = () => {
+    const content = input.trim();
+    if (!content || isStreaming) return;
+    setInput("");
+    onSend(content);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // Ignore Enter while an IME is composing (e.g. Vietnamese Telex/VNI): the
+    // key belongs to candidate selection, not message submission. isComposing
+    // is false once composition ends, so real Enter presses still send.
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submit();
+    }
+  };
+
+  const canSend = input.trim().length > 0;
+
+  return (
+    <Box
+      component="form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      sx={{
+        position: "sticky",
+        bottom: 0,
+        px: { xs: 2, md: 4 },
+        pb: { xs: 2, md: 3 },
+        pt: 2,
+        // Opaque gradient fade (no backdrop-filter): the composer sits over
+        // the animated particle canvas, where blur() re-composites per frame.
+        background:
+          "linear-gradient(180deg, transparent 0%, rgba(11,15,10,0.92) 32%, #0b0f0a 100%)",
+      }}
+    >
+      <Box sx={{ maxWidth: 780, mx: "auto" }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 1,
+            p: 1.25,
+            borderRadius: 3,
+            border: "1px solid rgba(163,172,160,0.15)",
+            background: "rgba(21,27,17,0.94)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+            transition: "all 0.2s",
+            "&:focus-within": {
+              borderColor: "rgba(118,185,0,0.5)",
+              boxShadow: "0 8px 32px rgba(118,185,0,0.18)",
+            },
+          }}
+        >
+          <TextField
+            inputRef={inputRef}
+            multiline
+            maxRows={8}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message Flux AI…"
+            fullWidth
+            variant="standard"
+            InputProps={{
+              disableUnderline: true,
+              sx: { fontSize: 15, px: 1.5, py: 0.5 },
+            }}
+            sx={{ flex: 1 }}
+          />
+          {isStreaming ? (
+            <Tooltip title="Stop generating">
+              <IconButton
+                onClick={onAbort}
+                sx={{
+                  bgcolor: "error.main",
+                  color: "white",
+                  "&:hover": { bgcolor: "error.dark" },
+                  width: 38,
+                  height: 38,
+                }}
+              >
+                <StopOutlined sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Send (Enter)">
+              <span>
+                <IconButton
+                  type="submit"
+                  disabled={!canSend}
+                  sx={{
+                    background: canSend
+                      ? "linear-gradient(135deg, #8ed100 0%, #76b900 100%)"
+                      : "rgba(163,172,160,0.08)",
+                    color: canSend ? "#0c1006" : "text.secondary",
+                    "&:hover": {
+                      background: canSend
+                        ? "linear-gradient(135deg, #a3e635 0%, #8ed100 100%)"
+                        : "rgba(163,172,160,0.14)",
+                    },
+                    width: 38,
+                    height: 38,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <SendOutlined sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+        </Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            display: "block",
+            textAlign: "center",
+            mt: 1.5,
+            fontSize: 11,
+            opacity: 0.7,
+          }}
+        >
+          Flux AI · {model || "no model"} · responses can be inaccurate
+        </Typography>
+      </Box>
+    </Box>
+  );
+});
 
 function EmptyHero({
   name,
@@ -292,31 +369,28 @@ function EmptyHero({
         py: { xs: 6, md: 10 },
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 180, damping: 14 }}
-      >
+      <Box sx={{ animation: "flux-fade-up 0.4s var(--ease-out) both" }}>
         <Box
           sx={{
             width: 56,
             height: 56,
             borderRadius: 2.5,
-            background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+            background: "var(--gradient-brand)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(139,92,246,0.35)",
+            boxShadow: "0 8px 24px rgba(118,185,0,0.35)",
             mb: 3,
           }}
         >
-          <AutoAwesome sx={{ color: "white", fontSize: 28 }} />
+          <AutoAwesome sx={{ color: "#0c1006", fontSize: 28 }} />
         </Box>
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.4 }}
+      </Box>
+      <Box
+        sx={{
+          animation: "flux-fade-up 0.4s var(--ease-out) both",
+          animationDelay: "0.1s",
+        }}
       >
         <Typography
           variant="h3"
@@ -326,7 +400,7 @@ function EmptyHero({
             fontSize: { xs: 30, md: 40 },
             lineHeight: 1.1,
             background:
-              "linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #ec4899 100%)",
+              "linear-gradient(135deg, #f4f7f0 0%, #a3e635 55%, #76b900 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             mb: 1.5,
@@ -341,7 +415,7 @@ function EmptyHero({
         >
           Pick a starter or just start typing. Anything goes.
         </Typography>
-      </motion.div>
+      </Box>
 
       <Box
         sx={{
@@ -354,31 +428,32 @@ function EmptyHero({
         }}
       >
         {STARTER_PROMPTS.map((p, i) => (
-          <motion.div
+          <Box
             key={p}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + i * 0.05 }}
+            sx={{
+              animation: "flux-fade-up 0.4s var(--ease-out) both",
+              animationDelay: `${0.2 + i * 0.05}s`,
+            }}
           >
             <Chip
               label={p}
               onClick={() => onPrompt(p)}
               sx={{
                 height: 34,
-                bgcolor: "rgba(161,161,170,0.08)",
-                border: "1px solid rgba(161,161,170,0.12)",
+                bgcolor: "rgba(163,172,160,0.08)",
+                border: "1px solid rgba(163,172,160,0.12)",
                 color: "text.primary",
                 fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
                 "&:hover": {
-                  bgcolor: "rgba(139,92,246,0.10)",
-                  borderColor: "rgba(139,92,246,0.4)",
+                  bgcolor: "rgba(118,185,0,0.10)",
+                  borderColor: "rgba(118,185,0,0.4)",
                 },
                 transition: "all 0.15s",
               }}
             />
-          </motion.div>
+          </Box>
         ))}
       </Box>
 
@@ -409,26 +484,27 @@ function EmptyHero({
         }}
       >
         {SUGGESTIONS.map((s, i) => (
-          <motion.div
+          <Box
             key={s.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 + i * 0.06 }}
+            sx={{
+              animation: "flux-fade-up 0.4s var(--ease-out) both",
+              animationDelay: `${0.35 + i * 0.06}s`,
+            }}
           >
             <Box
               onClick={() => onPrompt(s.prompt)}
               sx={{
                 p: 1.75,
                 borderRadius: 2.5,
-                border: "1px solid rgba(161,161,170,0.10)",
-                background: "rgba(24,24,27,0.4)",
+                border: "1px solid rgba(163,172,160,0.10)",
+                background: "rgba(21,27,17,0.4)",
                 textAlign: "left",
                 cursor: "pointer",
                 transition: "all 0.15s",
                 height: "100%",
                 "&:hover": {
-                  borderColor: "rgba(139,92,246,0.35)",
-                  background: "rgba(139,92,246,0.04)",
+                  borderColor: "rgba(118,185,0,0.35)",
+                  background: "rgba(118,185,0,0.04)",
                   transform: "translateY(-2px)",
                 },
               }}
@@ -458,22 +534,20 @@ function EmptyHero({
                 {s.prompt}
               </Typography>
             </Box>
-          </motion.div>
+          </Box>
         ))}
       </Box>
     </Box>
   );
 }
 
-function MessageBubble({
+const MessageBubble = React.memo(function MessageBubble({
   message,
-  userName,
   isLast,
   isStreaming,
   onRegenerate,
 }: {
   message: ChatMessage;
-  userName: string;
   isLast: boolean;
   isStreaming: boolean;
   onRegenerate: () => void;
@@ -490,12 +564,46 @@ function MessageBubble({
   // "Thinking" = streaming this assistant message but no answer text yet.
   const thinking = isStreaming && !message.content;
 
+  // User messages: right-aligned gradient glass bubble, no avatar/header.
+  if (isUser) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "flex-end",
+          animation: "flux-fade-up 0.28s var(--ease-out) both",
+        }}
+      >
+        <Box
+          sx={{
+            maxWidth: "80%",
+            px: 1.9,
+            py: 1.4,
+            borderRadius: "16px 16px 4px 16px",
+            background: "var(--gradient-brand)",
+            color: "#0c1006",
+            fontWeight: 500,
+            boxShadow: "0 6px 18px rgba(118,185,0,0.25)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 14.5,
+            lineHeight: 1.6,
+          }}
+        >
+          {message.content}
+        </Box>
+      </Box>
+    );
+  }
+
+  // Assistant messages: left-aligned editorial text with avatar + actions.
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      style={{ display: "flex", gap: 12 }}
+    <Box
+      sx={{
+        display: "flex",
+        gap: 1.5,
+        animation: "flux-fade-up 0.28s var(--ease-out) both",
+      }}
     >
       <Avatar
         sx={{
@@ -505,17 +613,11 @@ function MessageBubble({
           fontWeight: 700,
           flexShrink: 0,
           mt: 0.5,
-          background: isUser
-            ? "rgba(161,161,170,0.12)"
-            : "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
-          color: isUser ? "text.primary" : "white",
+          background: "var(--gradient-brand)",
+          color: "#0c1006",
         }}
       >
-        {isUser ? (
-          userName.trim().charAt(0).toUpperCase() || "U"
-        ) : (
-          <AutoAwesome sx={{ fontSize: 16 }} />
-        )}
+        <AutoAwesome sx={{ fontSize: 16 }} />
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -531,9 +633,9 @@ function MessageBubble({
             color="text.primary"
             sx={{ fontSize: 13 }}
           >
-            {isUser ? userName : "Flux AI"}
+            Flux AI
           </Typography>
-          {!isUser && message.model && (
+          {message.model && (
             <Typography
               variant="caption"
               color="text.secondary"
@@ -544,42 +646,21 @@ function MessageBubble({
           )}
         </Stack>
 
-        {!isUser && (
-          <ThinkingPanel
-            reasoning={message.reasoning ?? ""}
-            isThinking={thinking}
-          />
-        )}
+        <ThinkingPanel
+          reasoning={message.reasoning ?? ""}
+          isThinking={thinking}
+        />
 
-        <Box
-          sx={{
-            p: isUser ? 1.75 : 0,
-            borderRadius: 2,
-            background: isUser ? "rgba(139,92,246,0.10)" : "transparent",
-            border: isUser ? "1px solid rgba(139,92,246,0.22)" : "none",
-          }}
-        >
-          {isUser ? (
-            <Typography
-              component="div"
-              sx={{
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 14.5,
-                lineHeight: 1.65,
-              }}
-            >
-              {message.content}
-            </Typography>
-          ) : message.content ? (
-            <Box sx={{ display: "flex", alignItems: "flex-start" }}>
-              <Markdown>{message.content}</Markdown>
-              {isStreaming && <Cursor />}
-            </Box>
-          ) : null}
-        </Box>
+        {message.content ? (
+          <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+            <Markdown>{message.content}</Markdown>
+            {isStreaming && <Cursor />}
+          </Box>
+        ) : isStreaming && !message.reasoning ? (
+          <TypingDots />
+        ) : null}
 
-        {!isUser && !isStreaming && message.content && (
+        {!isStreaming && message.content && (
           <Stack
             direction="row"
             spacing={0.5}
@@ -617,9 +698,9 @@ function MessageBubble({
           </Stack>
         )}
       </Box>
-    </motion.div>
+    </Box>
   );
-}
+});
 
 function Cursor() {
   return (
@@ -629,7 +710,7 @@ function Cursor() {
         display: "inline-block",
         width: "0.5em",
         height: "1.05em",
-        background: "linear-gradient(180deg, #a78bfa 0%, #ec4899 100%)",
+        background: "linear-gradient(180deg, #a3e635 0%, #76b900 100%)",
         borderRadius: 0.5,
         ml: 0.3,
         verticalAlign: "-0.16em",
@@ -637,5 +718,31 @@ function Cursor() {
         animation: "flux-blink 1.05s steps(2) infinite",
       }}
     />
+  );
+}
+
+// Three bouncing gradient dots shown while the assistant is composing its
+// first token (the "responding" beat before text appears).
+function TypingDots() {
+  return (
+    <Box
+      sx={{ display: "flex", gap: 0.7, alignItems: "center", py: 0.75 }}
+      aria-label="Flux AI is responding"
+    >
+      {[0, 1, 2].map((i) => (
+        <Box
+          key={i}
+          component="span"
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "var(--gradient-brand)",
+            animation: "flux-typing 1.2s ease-in-out infinite",
+            animationDelay: `${i * 0.18}s`,
+          }}
+        />
+      ))}
+    </Box>
   );
 }
