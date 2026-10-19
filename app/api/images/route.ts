@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
 import { getResolvedConfig, normalizeEndpoint } from "@/lib/user-config";
+import {
+  assertPublicHttpEndpoint,
+  EndpointError,
+  ssrfDispatcher,
+} from "@/lib/net-guard";
+import { rateLimit } from "@/lib/rate-limit";
+import { safeImageUrl } from "@/lib/safe-url";
 
 export const runtime = "nodejs";
+
+// Each generation costs an upstream call and persists up to 4 images
+// (potentially ~10 MB of base64 each) — cap the rate and the stored total.
+const GEN_LIMIT = { requests: 30, windowMs: 60 * 60_000 };
+const GALLERY_CAP = 200;
 
 export async function GET() {
   const claims = await getAuth();
@@ -31,7 +43,11 @@ export async function GET() {
       prompt: img.prompt,
       model: img.model,
       size: img.size,
-      src: img.url ?? (img.b64 ? `data:image/png;base64,${img.b64}` : null),
+      // Sanitize on read too: rows written before scheme validation (or by
+      // any other writer) may carry javascript:/data:text/html URLs.
+      src:
+        safeImageUrl(img.url) ??
+        (img.b64 ? `data:image/png;base64,${img.b64}` : null),
       createdAt: img.createdAt.toISOString(),
     })),
   });
@@ -62,11 +78,38 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const limited = rateLimit(
+    `images-gen:${config.userId}`,
+    GEN_LIMIT.requests,
+    GEN_LIMIT.windowMs,
+  );
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Generation limit reached. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+    );
+  }
+
   const body = (await req.json().catch(() => ({}))) as GenBody;
   const prompt = body.prompt?.trim() ?? "";
   const model = body.model?.trim() ?? "";
   const size = body.size?.trim() || "1024x1024";
   const n = Math.min(Math.max(body.n ?? 1, 1), 4);
+
+  const base = normalizeEndpoint(config.endpoint);
+
+  // Same SSRF guard as the proxy route: the stored endpoint is user input.
+  try {
+    await assertPublicHttpEndpoint(base);
+  } catch (err) {
+    if (err instanceof EndpointError) {
+      return NextResponse.json(
+        { error: "upstream_forbidden", message: err.message },
+        { status: 403 },
+      );
+    }
+    throw err;
+  }
 
   if (!prompt)
     return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
@@ -76,7 +119,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
 
-  const base = normalizeEndpoint(config.endpoint);
   let upstream: Response;
   try {
     upstream = await fetch(`${base}/images/generations`, {
@@ -87,7 +129,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({ model, prompt, size, n }),
       signal: AbortSignal.timeout(120_000),
-    });
+      dispatcher: ssrfDispatcher(),
+    } as RequestInit);
   } catch (err) {
     return NextResponse.json(
       {
@@ -145,7 +188,10 @@ export async function POST(req: NextRequest) {
           prompt,
           model,
           size,
-          url: p.url ?? null,
+          // Only http(s) / image data: URIs are allowed into src/href —
+          // javascript: or data:text/html from a hostile upstream is stored
+          // XSS. Drop them rather than persisting a payload.
+          url: safeImageUrl(p.url),
           b64: p.b64_json ?? null,
         },
         select: {
@@ -161,13 +207,36 @@ export async function POST(req: NextRequest) {
     ),
   );
 
+  // Cap the gallery after a successful insert (there is no delete API, so
+  // unbounded growth is not an option). Trimming post-insert means a failed
+  // generation never destroys existing art, and concurrent writers that
+  // each overshoot still converge on the cap — their deleteMany calls hit
+  // the same oldest rows.
+  const extra =
+    (await prisma.generatedImage.count({
+      where: { userId: config.userId },
+    })) - GALLERY_CAP;
+  if (extra > 0) {
+    const oldest = await prisma.generatedImage.findMany({
+      where: { userId: config.userId },
+      orderBy: { createdAt: "asc" },
+      take: extra,
+      select: { id: true },
+    });
+    await prisma.generatedImage.deleteMany({
+      where: { id: { in: oldest.map((o) => o.id) } },
+    });
+  }
+
   return NextResponse.json({
     images: created.map((img) => ({
       id: img.id,
       prompt: img.prompt,
       model: img.model,
       size: img.size,
-      src: img.url ?? (img.b64 ? `data:image/png;base64,${img.b64}` : null),
+      src:
+        safeImageUrl(img.url) ??
+        (img.b64 ? `data:image/png;base64,${img.b64}` : null),
       createdAt: img.createdAt.toISOString(),
     })),
   });

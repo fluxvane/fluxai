@@ -85,13 +85,21 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       fullWidth
       PaperProps={{
         sx: {
-          background: "rgba(24,24,27,0.94)",
-          backdropFilter: "blur(24px)",
-          border: "1px solid rgba(161,161,170,0.15)",
+          background: "var(--surface-solid)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-panel)",
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 700 }}>Settings</DialogTitle>
+      <DialogTitle
+        sx={{
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
+          fontSize: 22,
+        }}
+      >
+        Settings
+      </DialogTitle>
       <form onSubmit={handleSave}>
         <DialogContent>
           <Stack spacing={2.5} sx={{ pt: 0.5 }}>
@@ -111,8 +119,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     width: 40,
                     height: 40,
                     fontWeight: 700,
-                    background:
-                      "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                    color: "#0c1006",
+                    background: "var(--gradient-brand)",
                   }}
                 >
                   {initial}

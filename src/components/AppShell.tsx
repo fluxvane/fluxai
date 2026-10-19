@@ -34,10 +34,11 @@ import {
   DeleteOutline,
   ImageOutlined,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import SettingsDialog from "./SettingsDialog";
+import AuroraBackground from "./aurora/AuroraBackground";
+import DisplayHeading from "./aurora/DisplayHeading";
 
 const NAV_ITEMS = [
   { label: "Chat", href: "/chat", icon: <ChatOutlined /> },
@@ -106,14 +107,24 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        height: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <AuroraBackground />
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: "rgba(9, 9, 11, 0.6)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(161, 161, 170, 0.08)",
+          // Solid tint, no backdrop-filter: this bar spans the top over the
+          // animated particle canvas; blur() would re-composite it every frame.
+          bgcolor: "rgba(13,17,10,0.92)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <Toolbar sx={{ gap: 1.5 }}>
@@ -137,25 +148,23 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                 width: 32,
                 height: 32,
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                background: "var(--gradient-brand)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 2px 10px rgba(139,92,246,0.4)",
+                boxShadow: "0 2px 10px rgba(118,185,0,0.4)",
               }}
             >
-              <AutoAwesome sx={{ color: "white", fontSize: 18 }} />
+              <AutoAwesome sx={{ color: "#0c1006", fontSize: 18 }} />
             </Box>
-            <Typography
-              variant="h6"
-              fontWeight={700}
+            <DisplayHeading
               sx={{
-                letterSpacing: "-0.01em",
+                fontSize: 20,
                 display: { xs: "none", sm: "block" },
               }}
             >
               Flux AI
-            </Typography>
+            </DisplayHeading>
           </Stack>
 
           <Box sx={{ flex: 1 }} />
@@ -182,8 +191,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   height: 34,
                   fontSize: 14,
                   fontWeight: 700,
-                  background:
-                    "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                  color: "#0c1006",
+                  background: "var(--gradient-brand)",
                 }}
               >
                 {initial}
@@ -203,8 +212,7 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
           sx: {
             mt: 1,
             minWidth: 240,
-            background: "rgba(24,24,27,0.96)",
-            backdropFilter: "blur(20px)",
+            background: "rgba(18,23,15,0.97)",
             border: "1px solid rgba(161,161,170,0.12)",
           },
         }}
@@ -216,7 +224,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                 width: 36,
                 height: 36,
                 fontWeight: 700,
-                background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                color: "#0c1006",
+                background: "var(--gradient-brand)",
               }}
             >
               {initial}
@@ -267,9 +276,8 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         PaperProps={{
           sx: {
             width: 290,
-            background: "rgba(24,24,27,0.94)",
-            backdropFilter: "blur(20px)",
-            borderRight: "1px solid rgba(161,161,170,0.08)",
+            background: "rgba(18,23,15,0.98)",
+            borderRight: "1px solid var(--border)",
           },
         }}
       >
@@ -296,7 +304,10 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
                   sx={{
                     borderRadius: 2,
                     mb: 0.5,
-                    "&.Mui-selected": { background: "rgba(139,92,246,0.12)" },
+                    transition: "background var(--dur-fast) var(--ease-out)",
+                    "&.Mui-selected": {
+                      background: "rgba(118,185,0,0.14)",
+                    },
                   }}
                 >
                   <ListItemIcon
@@ -322,7 +333,18 @@ export default function AppShell({ children, rightSlot }: AppShellProps) {
         </Box>
       </Drawer>
 
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          // Pages without their own scroller (config, analytics, generate-image)
+          // scroll here. Chat fills this exactly (its message list scrolls
+          // internally + pinned composer), so this never double-scrolls.
+          overflowY: "auto",
+        }}
+      >
         {children}
       </Box>
 
@@ -408,57 +430,51 @@ function ConversationList({ onSelect }: { onSelect: () => void }) {
         Recent
       </Typography>
       <List dense sx={{ mt: 0.5 }}>
-        <AnimatePresence initial={false}>
-          {conversations.map((c) => (
-            <motion.div
-              key={c.id}
-              layout
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18 }}
+        {conversations.map((c) => (
+          <Box
+            key={c.id}
+            sx={{ animation: "flux-fade-up 0.22s var(--ease-out) both" }}
+          >
+            <ListItemButton
+              selected={c.id === conversationId}
+              onClick={() => void handleOpen(c.id)}
+              sx={{
+                borderRadius: 2,
+                mb: 0.5,
+                pr: 1,
+                "&.Mui-selected": { background: "rgba(118,185,0,0.14)" },
+              }}
             >
-              <ListItemButton
-                selected={c.id === conversationId}
-                onClick={() => void handleOpen(c.id)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.5,
-                  pr: 1,
-                  "&.Mui-selected": { background: "rgba(139,92,246,0.12)" },
+              <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
+                <ChatOutlined fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={c.title}
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  noWrap: true,
+                  sx: { overflow: "hidden", textOverflow: "ellipsis" },
                 }}
-              >
-                <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
-                  <ChatOutlined fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={c.title}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    noWrap: true,
-                    sx: { overflow: "hidden", textOverflow: "ellipsis" },
+                secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
+                secondaryTypographyProps={{ fontSize: 11 }}
+              />
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  onClick={(e) => void handleDelete(c.id, e)}
+                  sx={{
+                    color: "text.secondary",
+                    opacity: 0.6,
+                    "&:hover": { opacity: 1, color: "error.main" },
                   }}
-                  secondary={`${c.messageCount} msgs · ${new Date(c.updatedAt).toLocaleDateString()}`}
-                  secondaryTypographyProps={{ fontSize: 11 }}
-                />
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => void handleDelete(c.id, e)}
-                    sx={{
-                      color: "text.secondary",
-                      opacity: 0.6,
-                      "&:hover": { opacity: 1, color: "error.main" },
-                    }}
-                  >
-                    <DeleteOutline sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </ListItemButton>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                >
+                  <DeleteOutline sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </ListItemButton>
+          </Box>
+        ))}
       </List>
     </>
   );

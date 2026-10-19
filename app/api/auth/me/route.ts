@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuth } from "@/lib/auth";
+import { getAuth, clearAuthCookie } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -21,6 +21,14 @@ export async function GET() {
   });
 
   if (!user) {
+    // Orphaned token: the JWT is cryptographically valid (so the edge
+    // middleware keeps treating the request as authenticated and serves "/"),
+    // but its user no longer exists in the DB. Left alone, this traps the UI in
+    // a "/" -> /api/auth/me 401 -> router.replace("/login") -> middleware
+    // bounces /login back to "/" loop. Purging the cookie here makes the next
+    // request unauthenticated, so middleware lets /login render and the loop
+    // ends.
+    await clearAuthCookie();
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
