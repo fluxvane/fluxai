@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import bcrypt from "bcryptjs";
+import { getJwtSecret } from "@/lib/jwt-secret";
 
 export const AUTH_COOKIE = "flux_ai_token";
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
@@ -11,11 +12,7 @@ export interface AuthClaims extends JWTPayload {
   name: string;
 }
 
-function secret(): Uint8Array {
-  const value = process.env.JWT_SECRET;
-  if (!value) throw new Error("JWT_SECRET is not set");
-  return new TextEncoder().encode(value);
-}
+const secret = getJwtSecret;
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10);

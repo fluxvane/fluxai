@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
+import { decryptApiKey } from "@/lib/api-keys";
+import {
+  assertPublicHttpEndpoint,
+  EndpointError,
+  ssrfDispatcher,
+} from "@/lib/net-guard";
 
 export interface ResolvedConfig {
   userId: string;
@@ -19,7 +25,9 @@ export async function getResolvedConfig(): Promise<ResolvedConfig | null> {
   return {
     userId: claims.sub,
     endpoint: config.endpoint,
-    apiKey: config.apiKey,
+    // Stored encrypted (v1.…) — decrypt for upstream use. Legacy plaintext
+    // rows pass through untouched until the next save.
+    apiKey: decryptApiKey(config.apiKey),
     defaultModel: config.defaultModel,
   };
 }
@@ -34,11 +42,23 @@ export async function probeProxy(
   apiKey: string,
 ): Promise<{ ok: boolean; status: number; message?: string }> {
   const base = normalizeEndpoint(endpoint);
+  // The config-save probe is an SSRF vector too: never fetch an endpoint that
+  // points at a private/reserved address or a non-http(s) scheme.
+  try {
+    await assertPublicHttpEndpoint(base);
+  } catch (err) {
+    if (err instanceof EndpointError) {
+      return { ok: false, status: 0, message: err.message };
+    }
+    throw err;
+  }
   try {
     const res = await fetch(`${base}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(15_000),
-    });
+      // Same connect-time DNS validation as the proxy/image routes.
+      dispatcher: ssrfDispatcher(),
+    } as RequestInit);
     if (res.ok) return { ok: true, status: res.status };
     return {
       ok: false,
