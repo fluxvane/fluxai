@@ -55,3 +55,7 @@ login-*.png
 
 # Superpowers brainstorm/visual companion scratch
 .superpowers/
+.turbo/
+tsconfig.tsbuildinfo
+*.log
+.npm-cache/
