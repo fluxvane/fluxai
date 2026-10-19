@@ -124,8 +124,7 @@ export default function ModelPicker({
               width: { xs: "calc(100vw - 32px)", sm: 380 },
               maxWidth: 380,
               maxHeight: 540,
-              background: "rgba(20,20,23,0.97)",
-              backdropFilter: "blur(24px)",
+              background: "rgba(18,23,15,0.98)",
               border: "1px solid rgba(161,161,170,0.12)",
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
               borderRadius: 2.5,
@@ -181,8 +180,7 @@ export default function ModelPicker({
                     py: 1,
                     position: "sticky",
                     top: 0,
-                    background: "rgba(20,20,23,0.96)",
-                    backdropFilter: "blur(8px)",
+                    background: "rgba(18,23,15,0.98)",
                     borderBottom: "1px solid rgba(161,161,170,0.05)",
                   }}
                 >
@@ -220,14 +218,14 @@ export default function ModelPicker({
                         justifyContent: "space-between",
                         gap: 1.5,
                         background: selected
-                          ? "rgba(139,92,246,0.12)"
+                          ? "rgba(118,185,0,0.12)"
                           : "transparent",
                         borderLeft: "2px solid",
                         borderColor: selected ? "primary.light" : "transparent",
                         "&:hover": {
                           background: selected
-                            ? "rgba(139,92,246,0.15)"
-                            : "rgba(161,161,170,0.05)",
+                            ? "rgba(118,185,0,0.15)"
+                            : "rgba(163,172,160,0.05)",
                         },
                         transition: "background 0.1s",
                       }}

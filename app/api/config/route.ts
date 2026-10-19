@@ -2,8 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
 import { normalizeEndpoint, probeProxy } from "@/lib/user-config";
+import { decryptApiKey, encryptApiKey } from "@/lib/api-keys";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+
+// Each save re-validates against the live endpoint (an upstream /models call),
+// so unlimited saves also mean unlimited upstream requests — cap them.
+const SAVE_LIMIT = { requests: 20, windowMs: 60_000 };
+
+function checkSaveLimit(userId: string): NextResponse | null {
+  const limited = rateLimit(
+    `config-save:${userId}`,
+    SAVE_LIMIT.requests,
+    SAVE_LIMIT.windowMs,
+  );
+  if (limited.ok) return null;
+  return NextResponse.json(
+    { error: "Too many attempts. Try again later." },
+    { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+  );
+}
 
 interface Body {
   endpoint?: string;
@@ -36,6 +55,9 @@ export async function POST(req: NextRequest) {
   if (!claims)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  const limited = checkSaveLimit(claims.sub);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => ({}))) as Body;
   const endpoint = normalizeEndpoint(body.endpoint ?? "");
   const apiKey = body.apiKey?.trim() ?? "";
@@ -67,10 +89,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Encrypt at rest: a DB read must never hand out usable upstream keys.
+  const storedKey = encryptApiKey(apiKey);
   await prisma.config.upsert({
     where: { userId: claims.sub },
-    create: { userId: claims.sub, endpoint, apiKey, defaultModel },
-    update: { endpoint, apiKey, defaultModel },
+    create: { userId: claims.sub, endpoint, apiKey: storedKey, defaultModel },
+    update: { endpoint, apiKey: storedKey, defaultModel },
   });
 
   return NextResponse.json({
@@ -85,6 +109,9 @@ export async function PATCH(req: NextRequest) {
   const claims = await getAuth();
   if (!claims)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const limited = checkSaveLimit(claims.sub);
+  if (limited) return limited;
 
   const existing = await prisma.config.findUnique({
     where: { userId: claims.sub },
@@ -101,7 +128,9 @@ export async function PATCH(req: NextRequest) {
     body.endpoint != null
       ? normalizeEndpoint(body.endpoint)
       : existing.endpoint;
-  const apiKey = body.apiKey?.trim() || existing.apiKey;
+  // The stored key is encrypted; decrypt it for the re-validation probe.
+  const newKey = body.apiKey?.trim() ?? "";
+  const apiKey = newKey || decryptApiKey(existing.apiKey);
   const defaultModel = body.defaultModel?.trim() || existing.defaultModel;
 
   if (!/^https?:\/\//i.test(endpoint)) {
@@ -124,7 +153,14 @@ export async function PATCH(req: NextRequest) {
 
   await prisma.config.update({
     where: { userId: claims.sub },
-    data: { endpoint, apiKey, defaultModel },
+    data: {
+      endpoint,
+      // Only re-encrypt when the caller supplied a new key; otherwise keep
+      // the existing ciphertext (legacy plaintext rows stay plaintext until
+      // they are next changed).
+      apiKey: newKey ? encryptApiKey(apiKey) : existing.apiKey,
+      defaultModel,
+    },
   });
 
   return NextResponse.json({
